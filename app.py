@@ -1,13 +1,13 @@
 import streamlit as st
 import math, random
 from datetime import datetime
-st.markdown('<meta name="google-site-verification" content="6W-M3ZdGes4vHbplEw4Jk1qwOvMAdO6Buyul_Vhb93Y" />', unsafe_allow_html=True)
+
 # إعدادات الصفحة
 st.set_page_config(
-    page_title="رام بوت برو v3.0",
+    page_title="رام بوت برو - شات بوت عربي للدراسة وحل التمارين",
     page_icon="🤖",
-    layout="centered"
-)
+    layout="wide"
+) 
 
 # CSS باش يجي الشكل زوين
 st.markdown("""
