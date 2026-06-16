@@ -2,11 +2,7 @@ import streamlit as st
 from groq import Groq
 
 # حط المفتاح ديالك هنا
-GROQ_KEY = gsk_rWaFSIOPGVbr9it5v1D5WGdyb3FYEfhPZGwZGEwB9pWHDedQJazuimport streamlit as st
-from groq import Groq
-
-# حط المفتاح ديالك هنا
-GROQ_KEY = "gsk_حط_المفتاح_الجديد_ديالك_هنا"
+GROQ_KEY="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"
 
 st.set_page_config(page_title="RAM Bot", page_icon="🤖", layout="wide")
 
