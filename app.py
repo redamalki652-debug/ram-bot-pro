@@ -35,7 +35,7 @@ def encode_image(image):
 
 if "messages" not in st.session_state:
     st.session_state.messages = []
-    st.session_state.last_image_id = None
+    st.session_state.last_image_name = None
 
 for msg in st.session_state.messages:
     if msg["role"]!= "system":
@@ -55,13 +55,13 @@ def process_image(image, user_prompt):
         st.markdown(user_prompt)
 
     with st.chat_message("assistant"):
-        with st.spinner("كنقرا الصورة..."):
+        with st.spinner("كنقرا الصورة بالموديل الجديد..."):
             try:
                 system_prompt = {
                     "role": "system",
                     "content": """نتا RAM Bot v1.0 Ultra. المطور ديالك رضا مالكي.
 1. كتهضر بالدارجة المغربية
-2. إلا عطاوك صورة: وصفها مزيان وجاوب على أي سؤال عليها. إلا فيها تمارين حلها خطوة بخطوة"""
+2. إلا عطاوك صورة: وصفها مزيان بالتفصيل وجاوب على أي سؤال عليها. إلا فيها تمارين حلها خطوة بخطوة"""
                 }
 
                 user_content = [
@@ -71,27 +71,25 @@ def process_image(image, user_prompt):
 
                 messages = [system_prompt] + st.session_state.messages + [{"role": "user", "content": user_content}]
 
-                # الموديل المضمون اللي عند كلشي
+                # الموديل الجديد ديال 2026 اللي خدام للصور
                 chat_completion = client.chat.completions.create(
                     messages=messages,
-                    model="llama-3.2-11b-vision-preview",
-                    temperature=0.7
+                    model="meta-llama/llama-4-scout-17b-16e-instruct",
+                    temperature=0.7,
+                    max_tokens=2048
                 )
                 response = chat_completion.choices[0].message.content
                 st.markdown(response)
                 st.session_state.messages.append({"role": "user", "content": user_prompt, "image": image})
                 st.session_state.messages.append({"role": "assistant", "content": response})
-                st.session_state.last_image_id = image.file_id
+                st.session_state.last_image_name = image.name
 
             except Exception as e:
                 st.error(f"خطأ: {e}")
-                st.info("إلا بقا الخطأ، تأكد من GROQ_KEY ديالك واش مفعل فيه Vision")
 
 # خدمة أوتوماتيك ملي تلوح تصويرة
-if uploaded_file is not None:
-    current_id = uploaded_file.file_id if hasattr(uploaded_file, 'file_id') else uploaded_file.name
-    if st.session_state.last_image_id!= current_id:
-        process_image(uploaded_file, "شنو فهاد الصورة؟ وصفها ليا بالتفصيل بالدارجة")
+if uploaded_file is not None and st.session_state.last_image_name!= uploaded_file.name:
+    process_image(uploaded_file, "شنو فهاد الصورة؟ وصفها ليا بالتفصيل بالدارجة")
 
 # الكتابة العادية
 if prompt := st.chat_input("كتب سؤالك هنا...", key="chat_1"):
@@ -119,7 +117,7 @@ if prompt := st.chat_input("كتب سؤالك هنا...", key="chat_1"):
                         {"type": "text", "text": prompt},
                         {"type": "image_url", "image_url": {"url": image_url}}
                     ]
-                    model_to_use = "llama-3.2-11b-vision-preview" # هنا تاني
+                    model_to_use = "meta-llama/llama-4-scout-17b-16e-instruct" # الموديل الجديد
                     st.session_state.messages.append({"role": "user", "content": prompt, "image": uploaded_file})
                 else:
                     user_content = prompt
@@ -142,7 +140,7 @@ if prompt := st.chat_input("كتب سؤالك هنا...", key="chat_1"):
 
 if st.button("🗑️ مسح المحادثة"):
     st.session_state.messages = []
-    st.session_state.last_image_id = None
+    st.session_state.last_image_name = None
     st.rerun()
 
 st.markdown("<div style='text-align: center; color: white; margin-top: 2rem;'>صنع بـ ❤️ بواسطة رضا مالكي</div>", unsafe_allow_html=True)
