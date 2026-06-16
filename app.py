@@ -11,7 +11,6 @@ st.set_page_config(
 GROQ_KEY = st.secrets["GROQ_KEY"]
 client = Groq(api_key=GROQ_KEY)
 
-# CSS نقي
 st.markdown("""
 <style>
 .stApp {background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);}
@@ -38,7 +37,6 @@ def encode_image(image):
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-# عرض المحادثة
 for msg in st.session_state.messages:
     if msg["role"]!= "system":
         with st.chat_message(msg["role"]):
@@ -61,13 +59,11 @@ if prompt := st.chat_input("كتب سؤالك هنا...", key="chat_1"):
                 system_prompt = {
                     "role": "system",
                     "content": """نتا RAM Bot v1.0 Ultra. المطور ديالك رضا مالكي.
-1. كتهضر بالدارجة المغربية بطريقة ذكية
+1. كتهضر بالدارجة المغربية
 2. إلا عطاوك صورة: قراها مزيان وجاوب على أي سؤال عليها. إلا فيها تمارين حلها خطوة بخطوة
-3. إلا سؤال نصي: جاوب بمعلومات دقيقة
-4. إلا تسولك شكون مطورك: قول 'المطور ديالي هو رضا مالكي بكل فخر'"""
+3. إلا سؤال نصي: جاوب بمعلومات دقيقة"""
                 }
 
-                # إلا كاينة صورة
                 if uploaded_file is not None:
                     image_b64 = encode_image(uploaded_file)
                     image_url = f"data:image/jpeg;base64,{image_b64}"
@@ -75,9 +71,9 @@ if prompt := st.chat_input("كتب سؤالك هنا...", key="chat_1"):
                         {"type": "text", "text": prompt},
                         {"type": "image_url", "image_url": {"url": image_url}}
                     ]
-                    model_to_use = "llama-3.2-11b-vision-preview"
+                    # الموديل الجديد اللي خدام دابا 100%
+                    model_to_use = "llama-3.2-90b-vision-preview"
                     st.session_state.messages.append({"role": "user", "content": prompt, "image": uploaded_file})
-                # إلا غير نص
                 else:
                     user_content = prompt
                     model_to_use = "llama-3.3-70b-versatile"
@@ -96,6 +92,7 @@ if prompt := st.chat_input("كتب سؤالك هنا...", key="chat_1"):
 
             except Exception as e:
                 st.error(f"خطأ: {e}")
+                st.info("إلا بقا المشكل، جرب موديل بديل: pixtral-12b-8k-instruct")
 
 if st.button("🗑️ مسح المحادثة"):
     st.session_state.messages = []
