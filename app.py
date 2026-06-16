@@ -5,6 +5,45 @@ import pytesseract
 
 st.set_page_config(page_title="المعلم رضا مالكي", page_icon="🤖", layout="centered")
 
+# ===== قاموس الكلمات الشائعة الغالطة =====
+SPELLING_DICT = {
+    'لوزن': 'الوزن',
+    'لكتابه': 'الكتابة', 
+    'بزاف': 'بزاف',
+    'كنقرا': 'كنقرا',
+    'معنديش': 'ما عنديش',
+    'كنتسا': 'كننسا',
+    'كنمل': 'كنمل',
+    'كنتقلق': 'كنتقلق',
+    'امتحان': 'امتحان',
+    'صحابي': 'صحابي',
+    'ثقة': 'ثقة',
+    'فراسي': 'في راسي',
+    'النعاس': 'النعاس',
+    'التلفون': 'التلفون'
+}
+
+def check_spelling(text):
+    words = text.split()
+    mistakes = []
+    corrected_words = []
+    
+    for word in words:
+        clean_word = word.strip('.,!?،؟')
+        if clean_word in SPELLING_DICT:
+            mistakes.append(f"**{clean_word}** ← الصحيح: **{SPELLING_DICT[clean_word]}**")
+            corrected_words.append(SPELLING_DICT[clean_word])
+        else:
+            corrected_words.append(word)
+    
+    corrected_text = " ".join(corrected_words)
+    
+    if mistakes:
+        correction_msg = "⚠️ لقيت شي أخطاء إملائية:\n" + "\n".join(mistakes[:3])
+        correction_msg += f"\n\n**النص المصح:** {corrected_text}"
+        return correction_msg, corrected_text
+    return None, text
+
 # ===== الدوال ديال الرد =====
 def get_casual_response(msg_lower):
     casual = {
@@ -33,7 +72,7 @@ def get_islamic_response(msg_lower):
 
 def get_support_response(msg_lower):
     support = {
-        'محبط': "كلنا كنفوتو بهاد الإحساس المعلم ❤️\n1. خد نفس عميق 3 مرات\n2. فكر فـ إنجاز صغير درتيه اليوم\n3. هضر مع شي واحد كتاق فيه\nانت قوي وقادر تفوت هاد المرحلة",
+        'محبط': "كلنا كنفوتو بهاد الإحساس المعلم ❤️\n1. خد نفس عميق 3 مرات\n2. فكر فـ إنجاز صغير درتيه اليوم\n3. هضر مع شي حد كتاق فيه\nانت قوي وقادر تفوت هاد المرحلة",
         'مكتئب': "سامحني ما نقدرش نعطيك تشخيص، ولكن أنا معاك ❤️\nإلا الإحساس قاصح بزاف، هضر مع طبيب نفسي ولا شي حد قريب ليك. انت ماشي بوحدك\nفـ المغرب: 0801002424 الخط ديال الاستماع",
         'بغيت نبكي': "بكي المعلم إلا بغيتي، الدموع كتريح القلب 😊\nمن بعد البكا كيجي الفرج. شنو اللي مضايقك؟ هضر معايا"
     }
@@ -75,39 +114,53 @@ def get_problem_solution(msg_lower):
     return None
 
 def get_bot_response(user_input):
-    msg_lower = user_input.lower().strip()
+    # 0. تصحيح الأخطاء الإملائية الأول
+    spelling_msg, corrected_input = check_spelling(user_input)
+    
+    msg_lower = corrected_input.lower().strip()
     
     # 1. الرد العادي
     casual = get_casual_response(msg_lower)
     if casual:
+        if spelling_msg:
+            return f"{spelling_msg}\n\n---\n{casual}"
         return casual
     
     # 2. الرد الديني
     islamic = get_islamic_response(msg_lower)
     if islamic:
+        if spelling_msg:
+            return f"{spelling_msg}\n\n---\n{islamic}"
         return islamic
     
     # 3. الدعم النفسي
     support = get_support_response(msg_lower)
     if support:
+        if spelling_msg:
+            return f"{spelling_msg}\n\n---\n{support}"
         return support
     
-    # 3.5. حل المشاكل
+    # 4. حل المشاكل
     problem = get_problem_solution(msg_lower)
     if problem:
+        if spelling_msg:
+            return f"{spelling_msg}\n\n---\n{problem}"
         return problem
     
-    # 4. الرد الافتراضي
+    # 5. الرد الافتراضي
     defaults = [
         "فهمتك المعلم 🤔 وضح ليا كثر باش نعاونك مزيان",
         "ما فهمتش مزيان، عاود بصيغة أخرى؟",
         "أنا معاك، شنو المشكل بالضبط؟"
     ]
-    return random.choice(defaults)
+    response = random.choice(defaults)
+    if spelling_msg:
+        return f"{spelling_msg}\n\n---\n{response}"
+    return response
 
 # ===== واجهة Streamlit =====
 st.title("🤖 المعلم رضا مالكي")
-st.caption("البوت الذكي ديالك - قراية، دين، ومشاكل")
+st.caption("البوت الذكي ديالك - قراية، دين، مشاكل، وإملاء")
 
 if "messages" not in st.session_state:
     st.session_state.messages = []
@@ -126,10 +179,17 @@ if uploaded_file is not None:
     with st.spinner("كنقرا فـ التمرين..."):
         text = pytesseract.image_to_string(image, lang='ara+eng')
     
+    # صحح النص اللي خرج من الصورة
+    spelling_msg, corrected_text = check_spelling(text)
+    
     st.write("**📝 اللي قريت:**")
     st.code(text)
     
-    st.session_state.messages.append({"role": "assistant", "content": f"قريت هادشي من الصورة:\n```\n{text}\n```"})
+    if spelling_msg:
+        st.warning(spelling_msg)
+        st.session_state.messages.append({"role": "assistant", "content": f"قريت هادشي من الصورة وصححتو ليك:\n```\n{corrected_text}\n```"})
+    else:
+        st.session_state.messages.append({"role": "assistant", "content": f"قريت هادشي من الصورة:\n```\n{text}\n```"})
 
 # الشات
 if prompt := st.chat_input("سول المعلم رضا مالكي..."):
