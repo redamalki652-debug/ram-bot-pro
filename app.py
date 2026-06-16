@@ -6,51 +6,37 @@ import speech_recognition as sr
 from pydub import AudioSegment
 import io
 import datetime
+from duckduckgo_search import DDGS
 
 st.set_page_config(page_title="RAM Bot Ultra", page_icon="🤖", layout="centered", initial_sidebar_state="collapsed")
 
-# ===== بطاقة الترحيب =====
 st.markdown("""
-<div dir="rtl" style="
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    padding: 30px;
-    border-radius: 25px;
-    color: white;
-    text-align: right;
-    margin-bottom: 25px;
-">
-    <h1 style="margin: 0;">🤖 RAM Bot Ultra v6.2</h1>
-    <h3>مليار معلومة + بحث حقي</h3>
-    <p><b>👨‍💻 المطور: رضا مالكي</b></p>
-    <p>🎤 صوت + 📸 صور + 🔍 بحث فـ النت + 💬 محادثة</p>
+<div dir="rtl" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; border-radius: 25px; color: white; text-align: right; margin-bottom: 25px;">
+    <h1>🤖 RAM Bot Ultra v6.3</h1>
+    <h3>كيقلب فـ النت بصح</h3>
+    <p><b>👨‍💻 رضا مالكي</b></p>
 </div>
 """, unsafe_allow_html=True)
 
-# ===== قاعدة المعرفة =====
 KNOWLEDGE_BASE = {
-    'سلام': "وعليكم السلام المعلم 👋 مرحبا بيك",
-    'شكون انت': "أنا RAM Bot Ultra 🤖 عندي بحث فـ النت + ذكاء. سولني على أي حاجة!",
-    'شكرا': "العفو المعلم ❤️ راني هنا ديما",
+    'سلام': "وعليكم السلام المعلم 👋",
+    'عاصمة الصين': 'عاصمة الصين هي **بكين Beijing** 🇨🇳',
+    'عاصمة كوريا': 'عاصمة كوريا الجنوبية هي **سيول Seoul** 🇰🇷',
 }
 
-# ===== البحث الحقي فـ النت =====
+# ===== البحث الحقي ب duckduckgo_search =====
 def search_internet(query):
     try:
-        search_results = browser.search(
-            primary_query={"language_code": "ar", "query": query},
-            verbosity_level="high"
-        )
-        if hasattr(search_results, 'results') and search_results.results:
-            top_result = search_results.results[0]
-            snippet = top_result.get('snippet', '')
-            title = top_result.get('title', '')
-            if snippet:
-                return f"**{title}**\n{snippet}"
+        with DDGS() as ddgs:
+            results = ddgs.text(query, max_results=1)
+            if results:
+                r = results[0]
+                return f"**{r['title']}**\n{r['body']}\n🔗 {r['href']}"
         return None
     except Exception:
         return None
 
-# ===== دالة الصوت =====
+# ===== الصوت =====
 def audio_to_text(audio_bytes):
     recognizer = sr.Recognizer()
     try:
@@ -63,98 +49,69 @@ def audio_to_text(audio_bytes):
         text = recognizer.recognize_google(audio_data, language="ar-MA")
         return text, None
     except Exception as e:
-        if "ffprobe" in str(e):
-            return None, "⚠️ خاص ffmpeg فـ packages.txt ودير Reboot"
-        return None, "ما فهمتش الصوت، عاود 🎤"
+        return None, f"خطأ: {e}"
 
-# ===== الرد الذكي + بحث + عواصم =====
+# ===== الرد الذكي =====
 def get_smart_response(user_msg):
     msg = user_msg.lower().strip()
 
-    # 1. عواصم ودول مباشرة
-    capitals = {
-        'عاصمة كوريا': 'عاصمة كوريا الجنوبية هي **سيول Seoul** 🇰🇷',
-        'عاصمة المغرب': 'عاصمة المغرب هي **الرباط** 🇲🇦',
-        'عاصمة فرنسا': 'عاصمة فرنسا هي **باريس Paris** 🇫🇷',
-        'عاصمة اليابان': 'عاصمة اليابان هي **طوكيو Tokyo** 🇯🇵',
-        'عاصمة امريكا': 'عاصمة أمريكا هي **واشنطن دي سي** 🇺🇸',
-        'عاصمة مصر': 'عاصمة مصر هي **القاهرة** 🇪🇬'
-    }
-    for key, answer in capitals.items():
-        if key in msg:
-            return answer
-
-    # 2. قاعدة المعرفة
+    # عواصم
     for key, answer in KNOWLEDGE_BASE.items():
         if key in msg:
             return answer
 
-    # 3. أي سؤال = قلب فـ النت دغيا
-    with st.spinner("🔍 كنقلب ليك فـ النت دابا..."):
+    # أي سؤال = قلب فـ النت دغيا بلا شروط
+    with st.spinner("🔍 كنقلب فـ Google دابا..."):
         result = search_internet(user_msg)
 
     if result:
-        return f"🔍 **لقيت ليك هاد الجواب:**\n{result}\n\nبغيتي تفاصيل كثر المعلم؟"
+        return f"🔍 **لقيت ليك هاد الجواب:**\n{result}"
     else:
-        if 'علاش' in msg:
-            return f"🤔 علاش {msg.replace('علاش', '')}؟ كل حاجة عندها سبب وحكمة"
-        return f"فهمتك المعلم 👌 {msg} موضوع كبير. شنو بالضبط باغي تعرف؟"
+        return f"ما لقيتش جواب دقيق المعلم 😅 عاود بصيغة أخرى"
 
-# ===== تهيئة المحادثة =====
+# ===== المحادثة =====
 if "messages" not in st.session_state:
-    st.session_state.messages = [{"role": "assistant", "content": "السلام المعلم 👋 أنا RAM Bot Ultra v6.2. عندي مليار معلومة + بحث فـ النت. سولني على أي حاجة!"}]
+    st.session_state.messages = [{"role": "assistant", "content": "السلام المعلم 👋 أنا RAM Bot Ultra v6.3. دابا كنقلب فـ النت بصح. جربني!"}]
 
-# ===== الصوت - بلا وميض =====
+# الصوت
 audio_input = st.audio_input("🎤 هضر معايا")
 if audio_input and "last_audio" not in st.session_state:
     st.session_state.last_audio = audio_input.getvalue()
-    audio_bytes = st.session_state.last_audio
-
-    with st.spinner("RAM Bot كيسمع ليك..."):
-        text, error = audio_to_text(audio_bytes)
-
+    text, error = audio_to_text(st.session_state.last_audio)
     if error:
         st.error(error)
     else:
         st.session_state.messages.append({"role": "user", "content": f"🎤 {text}"})
         response = get_smart_response(text)
         st.session_state.messages.append({"role": "assistant", "content": response})
-
     st.session_state.last_audio = None
     st.stop()
-
 elif audio_input is None:
     st.session_state.pop("last_audio", None)
 
-# ===== الصور OCR =====
-uploaded_file = st.file_uploader("📸 صيفط صورة تمرين", type=["png", "jpg", "jpeg"], label_visibility="collapsed")
+# الصور
+uploaded_file = st.file_uploader("📸 صيفط صورة", type=["png", "jpg", "jpeg"], label_visibility="collapsed")
 if uploaded_file:
     image = Image.open(uploaded_file)
     st.image(image, use_column_width=True)
-    with st.spinner("كنقرا فـ الصورة..."):
-        text = pytesseract.image_to_string(image, lang='ara+eng+fra')
-    if text.strip():
-        st.success(f"📝 قريت من الصورة:\n{text}")
-        st.session_state.messages.append({"role": "assistant", "content": f"من الصورة قريت:\n```\n{text}\n```\nشنو ندير بيه المعلم؟"})
-    else:
-        st.warning("ما قدرتش نقرا والو فـ الصورة 😅")
+    text = pytesseract.image_to_string(image, lang='ara+eng+fra')
+    st.success(f"قريت: {text}")
+    st.session_state.messages.append({"role": "assistant", "content": f"من الصورة:\n```\n{text}\n```"})
     st.rerun()
 
-# ===== عرض المحادثة =====
+# عرض الرسائل
 for message in st.session_state.messages:
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
 
-# ===== الكتابة =====
+# الكتابة
 if prompt := st.chat_input("سولني على أي حاجة..."):
     st.session_state.messages.append({"role": "user", "content": prompt})
     with st.chat_message("user"):
         st.markdown(prompt)
-
     with st.chat_message("assistant"):
-        with st.spinner("كنفكر..."):
+        with st.spinner("كنقلب..."):
             response = get_smart_response(prompt)
         st.markdown(response)
-
     st.session_state.messages.append({"role": "assistant", "content": response})
     st.rerun()
