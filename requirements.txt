@@ -1,6 +1,4 @@
 streamlit
+requests
 Pillow
 pytesseract
-speechrecognition
-pydub
-duckgo_search
