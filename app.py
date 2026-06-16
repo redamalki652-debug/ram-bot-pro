@@ -46,6 +46,51 @@ for msg in st.session_state.messages:
 
 uploaded_file = st.file_uploader("📸 صيفط صورة ولا سول عادي", type=["png", "jpg", "jpeg"])
 
+# دالة معالجة الصورة
+def process_image(image, user_prompt):
+    image_b64 = encode_image(image)
+    image_url = f"data:image/jpeg;base64,{image_b64}"
+
+    with st.chat_message("user"):
+        st.image(image, width=300)
+        st.markdown(user_prompt)
+
+    with st.chat_message("assistant"):
+        with st.spinner("كنقرا الصورة..."):
+            try:
+                system_prompt = {
+                    "role": "system",
+                    "content": """نتا RAM Bot v1.0 Ultra. المطور ديالك رضا مالكي.
+1. كتهضر بالدارجة المغربية
+2. إلا عطاوك صورة: وصفها مزيان وجاوب على أي سؤال عليها. إلا فيها تمارين حلها خطوة بخطوة"""
+                }
+
+                user_content = [
+                    {"type": "text", "text": user_prompt},
+                    {"type": "image_url", "image_url": {"url": image_url}}
+                ]
+
+                messages = [system_prompt] + st.session_state.messages + [{"role": "user", "content": user_content}]
+
+                chat_completion = client.chat.completions.create(
+                    messages=messages,
+                    model="pixtral-12b-8k-instruct",
+                    temperature=0.7
+                )
+                response = chat_completion.choices[0].message.content
+                st.markdown(response)
+                st.session_state.messages.append({"role": "user", "content": user_prompt, "image": image})
+                st.session_state.messages.append({"role": "assistant", "content": response})
+
+            except Exception as e:
+                st.error(f"خطأ: {e}")
+
+# 1. إلا صيفط تصويرة بوحدها - يخدم أوتوماتيك
+if uploaded_file is not None and len(st.session_state.messages) == 0 or \
+   (len(st.session_state.messages) > 0 and st.session_state.messages[-1].get("image")!= uploaded_file):
+    process_image(uploaded_file, "شنو فهاد الصورة؟ وصفها ليا بالتفصيل بالدارجة")
+
+# 2. إلا كتب شي حاجة مع التصويرة ولا بلا تصويرة
 if prompt := st.chat_input("كتب سؤالك هنا...", key="chat_1"):
 
     with st.chat_message("user"):
@@ -54,7 +99,7 @@ if prompt := st.chat_input("كتب سؤالك هنا...", key="chat_1"):
         st.markdown(prompt)
 
     with st.chat_message("assistant"):
-        with st.spinner("كنقرا الصورة..."):
+        with st.spinner("كنجاوب..."):
             try:
                 system_prompt = {
                     "role": "system",
@@ -71,7 +116,6 @@ if prompt := st.chat_input("كتب سؤالك هنا...", key="chat_1"):
                         {"type": "text", "text": prompt},
                         {"type": "image_url", "image_url": {"url": image_url}}
                     ]
-                    # الموديل الوحيد اللي باقي خدام للصور فـ Groq دابا
                     model_to_use = "pixtral-12b-8k-instruct"
                     st.session_state.messages.append({"role": "user", "content": prompt, "image": uploaded_file})
                 else:
