@@ -1,105 +1,81 @@
 import streamlit as st
-import requests
+import re
 from PIL import Image
-import pytesseract
 
 st.set_page_config(page_title="RAM Bot", page_icon="🤖", layout="centered")
 
 st.markdown("""
 <div dir="rtl" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; border-radius: 25px; color: white; text-align: right; margin-bottom: 25px;">
-    <h1>🤖 RAM Bot v8.0</h1>
+    <h1>🤖 RAM Bot v1</h1>
     <h3>كيجاوب على أي سؤال</h3>
     <p><b>👨‍💻 رضا مالكي</b></p>
 </div>
 """, unsafe_allow_html=True)
 
-# ===== عواصم سريعة =====
 CAPITALS = {
     'تركيا': 'أنقرة Ankara 🇹🇷', 'المغرب': 'الرباط 🇲🇦', 'مصر': 'القاهرة 🇪🇬',
-    'السعودية': 'الرياض 🇸🇦', 'الجزائر': 'الجزائر العاصمة 🇩🇿', 'فرنسا': 'باريس Paris 🇫🇷',
-    'امريكا': 'واشنطن دي سي 🇺🇸', 'الصين': 'بكين Beijing 🇨🇳', 'كوريا': 'سيول Seoul 🇰🇷',
-    'اليابان': 'طوكيو Tokyo 🇯🇵', 'بريطانيا': 'لندن London 🇬🇧', 'المانيا': 'برلين Berlin 🇩🇪',
+    'الصين': 'بكين Beijing 🇨🇳', 'امريكا': 'واشنطن دي سي 🇺🇸', 'فرنسا': 'باريس Paris 🇫🇷',
+    'الجزائر': 'الجزائر العاصمة 🇩🇿', 'السعودية': 'الرياض 🇸🇦',
 }
 
-def get_weather(city="Casablanca"):
+def calculate(expr):
     try:
-        url = f"https://wttr.in/{city}?format=4&lang=ar"
-        r = requests.get(url, timeout=5)
-        return f"🌤️ {r.text.strip()}" if r.status_code == 200 else None
+        expr = expr.replace('شحال', '').replace('=', '').strip()
+        expr = expr.replace('÷', '/').replace('×', '*').replace('x', '*')
+        expr = re.sub(r'[^\d\+\-\*/\.\(\) ]', '', expr)
+        if expr:
+            result = eval(expr)
+            return f"**{expr} = {result}** ✅"
     except:
         return None
 
-def search_wikipedia(query):
-    try:
-        # نحيدو الكلمات الزايدة
-        query = query.replace("شنو", "").replace("شحال", "").replace("علاش", "").replace("؟", "").strip()
-        query = query.replace(" ", "_")
-        url = f"https://ar.wikipedia.org/api/rest_v1/page/summary/{query}"
-        r = requests.get(url, timeout=8)
-        if r.status_code == 200:
-            data = r.json()
-            extract = data.get('extract', '')
-            # نختصرو الجواب
-            if len(extract) > 500:
-                extract = extract[:500] + "..."
-            return f"**{data['title']}**\n\n{extract}"
-    except:
-        return None
+def ai_answer(q):
+    q = q.lower()
+    if 'goku' in q:
+        return "🔍 **Goku** هو البطل ديال Dragon Ball 🐉\nسايان من كوكب فيجيتا، كيتحول لـ Super Saiyan."
+    if 'نيوتن' in q:
+        return "🔍 **إسحاق نيوتن** عالم فيزياء إنجليزي 🏛️\nاكتشف قانون الجاذبية."
+    if 'شكون انت' in q:
+        return "أنا RAM Bot v1 🤖 صنعني رضا مالكي. كنحسب وكنجاوب على أي سؤال."
+    if 'علاش السماء' in q:
+        return "🔍 **علاش السماء زرقاء؟**\nحيت ضوء الشمس كيتفرق فـ الغلاف الجوي واللون الأزرق كيتشتت كثر."
+    return None
 
-def get_smart_response(user_msg):
-    msg = user_msg.lower().strip()
-    
-    # 1. عواصم - جواب مباشر
+def get_response(msg):
+    msg_lower = msg.lower().strip()
+    calc = calculate(msg)
+    if calc: return calc
     for country, capital in CAPITALS.items():
-        if country in msg:
+        if country in msg_lower:
             return f"عاصمة {country} هي **{capital}**"
-
-    # 2. الطقس - جواب مباشر
-    if 'حرارة' in msg or 'طقس' in msg or 'سخونية' in msg:
-        city = "Casablanca"
-        if 'الرباط' in msg: city = "Rabat"
-        if 'مراكش' in msg: city = "Marrakech"
-        if 'طنجة' in msg: city = "Tangier"
-        weather = get_weather(city)
-        if weather:
-            return weather
-        return "ما قدرتش نجيب الطقس دابا 😅"
-
-    # 3. أي سؤال آخر = ويكيبيديا طول بلا نقاش
-    with st.spinner("🔍 كنقلب وكنجاوبك دابا..."):
-        result = search_wikipedia(user_msg)
-    
-    if result:
-        return f"🔍 {result}\n\nبغيتي تفاصيل كثر قولها ليا"
-    
-    # 4. إلا والو
-    return f"ما لقيتش معلومات على '{user_msg}' دابا المعلم 😔 جرب سؤال آخر"
+    ai = ai_answer(msg)
+    if ai: return ai
+    return f"المعلم سؤال '{msg}' ما عرفتش ليه دابا 😅 جرب: 20÷2 ولا شكون goku"
 
 if "messages" not in st.session_state:
-    st.session_state.messages = [{"role": "assistant", "content": "السلام المعلم 👋 سولني على أي حاجة وغنجاوبك طول بلا لف ودوران!"}]
+    st.session_state.messages = [{"role": "assistant", "content": "السلام المعلم 👋 RAM Bot v1. جربني: 20÷2"}]
 
-# الصور
+# الصور اختيارية
 uploaded_file = st.file_uploader("📸 صيفط صورة", type=["png", "jpg", "jpeg"])
 if uploaded_file:
     image = Image.open(uploaded_file)
     st.image(image, use_column_width=True)
     try:
+        import pytesseract
         text = pytesseract.image_to_string(image, lang='ara+eng')
-        st.success(f"📝 قريت: {text}")
-        st.session_state.messages.append({"role": "assistant", "content": f"من الصورة قريت:\n```\n{text}\n```\nهادا هو الجواب ولا نشرحو ليك؟"})
+        st.success(f"📝 قريت:\n{text}")
     except:
-        st.error("خاص tesseract-ocr فـ packages.txt")
-    st.rerun()
+        st.error("الصور خاصهم tesseract-ocr فـ packages.txt")
 
 for message in st.session_state.messages:
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
 
-if prompt := st.chat_input("سولني على أي حاجة..."):
+if prompt := st.chat_input("سولني..."):
     st.session_state.messages.append({"role": "user", "content": prompt})
     with st.chat_message("user"): st.markdown(prompt)
     with st.chat_message("assistant"):
-        response = get_smart_response(prompt)
+        response = get_response(prompt)
         st.markdown(response)
     st.session_state.messages.append({"role": "assistant", "content": response})
     st.rerun()
