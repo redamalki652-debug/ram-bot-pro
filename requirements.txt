@@ -1,5 +1,5 @@
 streamlit
-sympy
 Pillow
 pytesseract
-pyspellchecker
+speechrecognition
+pydub
