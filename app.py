@@ -54,7 +54,7 @@ if prompt := st.chat_input("كتب سؤالك هنا...", key="chat_1"):
         st.markdown(prompt)
 
     with st.chat_message("assistant"):
-        with st.spinner("كنجاوب..."):
+        with st.spinner("كنقرا الصورة..."):
             try:
                 system_prompt = {
                     "role": "system",
@@ -71,8 +71,8 @@ if prompt := st.chat_input("كتب سؤالك هنا...", key="chat_1"):
                         {"type": "text", "text": prompt},
                         {"type": "image_url", "image_url": {"url": image_url}}
                     ]
-                    # الموديل الجديد اللي خدام دابا 100%
-                    model_to_use = "llama-3.2-90b-vision-preview"
+                    # الموديل الوحيد اللي باقي خدام للصور فـ Groq دابا
+                    model_to_use = "pixtral-12b-8k-instruct"
                     st.session_state.messages.append({"role": "user", "content": prompt, "image": uploaded_file})
                 else:
                     user_content = prompt
@@ -92,7 +92,6 @@ if prompt := st.chat_input("كتب سؤالك هنا...", key="chat_1"):
 
             except Exception as e:
                 st.error(f"خطأ: {e}")
-                st.info("إلا بقا المشكل، جرب موديل بديل: pixtral-12b-8k-instruct")
 
 if st.button("🗑️ مسح المحادثة"):
     st.session_state.messages = []
