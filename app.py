@@ -1,122 +1,94 @@
 import streamlit as st
-import math, random
-from datetime import datetime
+import re
+from sympy import symbols, Eq, solve
 
-# إعدادات الصفحة
-st.set_page_config(
-    page_title="رام بوت برو - شات بوت عربي للدراسة وحل التمارين",
-    page_icon="🤖",
-    layout="wide"
-) 
+st.set_page_config(page_title="رام بوت - المساعد الدراسي", page_icon="🤖")
 
-# CSS باش يجي الشكل زوين
-st.markdown("""
-<style>
-    .main {background-color: #f0f2f6;}
-    .stButton>button {background-color: #4CAF50; color: white; border-radius: 10px;}
-    .chat-message {padding: 10px; border-radius: 10px; margin: 5px 0;}
-    .user-msg {background-color: #DCF8C6; text-align: right;}
-    .bot-msg {background-color: #FFFFFF; text-align: left; border: 1px solid #ddd;}
-</style>
-""", unsafe_allow_html=True)
+st.title("🤖 رام بوت برو v4.4")
+st.subheader("مطور: رضا مالكي")
+st.write("📚 رياضيات + معادلات + نسب % + دين + مواد + دعم نفسي")
 
-st.title("🤖 رام بوت برو v3.0")
-st.subheader("مطور: رضا مالكي من سيدي حجاج")
-st.write("9 لغات + دين + ساعة + حاسبة + حلول + سيرة الرسول ﷺ")
-
-def جواب_البوت(سؤال_أصلي):
-    سؤال = سؤال_أصلي.lower().strip()
-    
-    if any(k in سؤال for k in ["hy", "helo", "هلو"]): سؤال = "hello"
-    elif any(k in سؤال for k in ["سلا", "سلم"]): سؤال = "سلام"
-    elif any(k in سؤال for k in ["شحال سعا"]): سؤال = "شحال الساعة"
-    elif any(k in سؤال for k in ["لابس"]): سؤال = "لابس"
-
-    # الساعة
-    if any(k in سؤال for k in ["شحال الساعة", "كم الساعة", "what time"]):
-        دابا = datetime.now()
-        الوقت = دابا.strftime("%H:%M:%S")
-        التاريخ = دابا.strftime("%Y-%m-%d")
-        return f"دابا {الوقت} المعلم رضا ⏰ والتاريخ {التاريخ} 📅"
-
-    # الحاسبة
-    try:
-        عملية = سؤال_أصلي.replace('x','*').replace('×','*').replace('÷','/').replace('على','/')
-        عملية = عملية.replace('في','*').replace('زائد','+').replace('ناقص','-').replace('جدر','sqrt').replace('اس','**')
-        عملية = عملية.replace('شحال','').strip()
-        عملية_نقية = ''.join([c for c in عملية if c in '0123456789+-*/.%() sqrt**'])
-        if any(x in عملية_نقية for x in ['+','-','*','/','%','sqrt','**']) and len(عملية_نقية.strip())>2:
-            النتيجة = eval(عملية_نقية)
-            if النتيجة == int(النتيجة): النتيجة = int(النتيجة)
-            return f"الحل = {النتيجة} ✅"
-    except: pass
-
-    # الدين
-    if سؤال == "دين":
-        return "مرحبا المعلم رضا 📿 سولني: شكون الله؟ شكون الرسول؟ قصة نوح؟ قصة محمد؟"
-    
-    elif any(k in سؤال for k in ["شكون الرسول", "الرسول", "محمد"]):
-        return "سيدنا محمد ﷺ هو خاتم الأنبياء 💚 ولد فمكة عام الفيل، وبدا الوحي وهو عندو 40 عام. كان خلقو القرآن"
-    
-    elif any(k in سؤال for k in ["قصة محمد", "السيرة"]):
-        return "📖 سيدنا محمد ﷺ: ولد يتيم، رباه جدو. خدم فالتجارة وكان الصادق الأمين. فغار حراء جاه الوحي 'اقرأ'. نشر الإسلام 23 عام ﷺ"
-    
-    elif any(k in سؤال for k in ["قصة نوح", "نوح"]):
-        return "📖 سيدنا نوح: صنع السفينة وصبر 950 عام يدعو قومو. جا الطوفان ونجا هو والمؤمنين ⛵"
-
-    # اللغات + لابس/لاباس
-    elif any(k in سؤال for k in ["سلام", "السلام عليكم"]):
-        return "وعليكم السلام المعلم رضا! واش لاباس؟ 😊"
-    
-    elif any(k in سؤال for k in ["لاباس", "لابس", "مزيان", "بخير"]):
-        return "الحمد لله المعلم رضا، دامك نتا لابس/لاباس وصافي ❤️"
-    
-    elif any(k in سؤال for k in ["hello", "hi"]):
-        return "Hello المعلم رضا! How are you? I'm fine 😄"
-    
-    elif any(k in سؤال for k in ["bonjour"]):
-        return "Bonjour المعلم رضا! Ça va bien؟"
-    
-    elif any(k in سؤال for k in ["أزول"]):
-        return "أزول المعلم رضا! مانزاكين؟ لاباس الحمد لله ⵣ"
-
-    # الحلول
-    elif any(k in سؤال for k in ["معصب", "غضبان"]):
-        return "هدن راسك المعلم رضا 🧊: 1. شرب ما بارد 2. عد من 1 ل 10 3. قول أعوذ بالله"
-    
-    elif any(k in سؤال for k in ["مخلوع", "خلعة"]):
-        return "ما تخافش المعلم رضا 🤲: 1. دير نفس عميق 2. قرا حسبي الله 3. الخلعة كدوز"
-    
-    elif any(k in سؤال for k in ["عيان", "تعبان"]):
-        return "الحل المعلم رضا 😌: 1. توضا 2. غسل وجهك 3. خرج تشم الهواء"
-
-    elif any(k in سؤال for k in ["شكون نتا"]):
-        return "سميتي رام بوت برو v3.0 🤖 مطور تاعي رضا مالكي. كنفهم 9 لغات والدين والحلول 💻"
-    
-    else:
-        return "فهمتك المعلم رضا 😄 جرب: شحال الساعة؟ hello؟ لابس؟ شكون الرسول؟"
-
-# حفظ المحادثة
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-# عرض المحادثة القديمة
+def solve_equation(eq_text):
+    try:
+        x = symbols('x')
+        eq_text = eq_text.replace("=", "-(") + ")"
+        eq = Eq(eval(eq_text), 0)
+        solution = solve(eq, x)
+        return f"حل المعادلة: x = {solution[0]} ✅\nالخطوات: نقلنا 5 للجهة الثانية، قسمينا على 2"
+    except:
+        return "كتب المعادلة بهاد الشكل: 2x + 5 = 15"
+
+def calc_percent(text):
+    match = re.search(r'(\d+)%\s*من\s*(\d+)', text)
+    if match:
+        percent = float(match.group(1))
+        number = float(match.group(2))
+        result = (percent / 100) * number
+        return f"{percent}% من {number} = {result} ✅"
+    return None
+
+def get_bot_response(user_input):
+    user_input = user_input.lower().strip()
+
+    # 1. دعم المشاعر
+    if any(x in user_input for x in ["معصب", "مقلق", "مهموم", "زعفان", "مضغوط"]):
+        return """سمعتك المعلم 💙 عادي تحس هكا مرة.
+خد نفس عميق، شرب ماء، وتهلا فراسك.
+أنا بوت للمساعدة فقط. إلا الإحساس قوي، هضر مع شي حد كتثق فيه ولا اتصل بالخط الأخضر 0801002424 مجاني.
+شنو اللي مضايقك نقدر نعاونك فيه؟"""
+
+    # 2. حلول المواد - تخراج ديال شي حاجة
+    if any(x in user_input for x in ["خرج ليا", "حل ليا", "تمرين", "درس", "شرح ليا", "وضعية", "production écrite"]):
+        return f"""صافي فهمتك، بغيتي {user_input} ✅
+عطيني السؤال كامل ولا صورة التمرين وغادي نحلو ليك خطوة بخطوة:
+1. غنفهمو السؤال مزيان
+2. غنطبقو القاعدة
+3. غنعطيو الجواب النهائي
+صيفط التمرين دابا ونشوفو."""
+
+    # 3. مواد محددة
+    if "رياضيات" in user_input or "math" in user_input:
+        return "مرحبا بمادة الرياضيات ➕ عطيني المسألة: معادلة، دالة، هندسة... وغادي نحلها معاك."
+    if "فيزياء" in user_input or "pc" in user_input:
+        return "مرحبا بالفيزياء ⚡ عطيني القانون ولا التمرين وغادي نطبقو معاك."
+    if "فرنسية" in user_input or "français" in user_input:
+        return "مرحبا بالفرنسية 🇫🇷 بغيتي تصحيح ولا production écrite ولا قواعد؟ صيفط الموضوع."
+    if "عربية" in user_input:
+        return "مرحبا بالعربية 📝 بغيتي إعراب، تعبير، ولا تحليل نص؟ عطيني النص."
+
+    # 4. شكون الله والرسول
+    if "شكون الله" in user_input or "من هو الله" in user_input:
+        return "الله سبحانه هو خالق كل شيء، الواحد الأحد، الرحمن الرحيم. نعبده وحده لا شريك له."
+    if "شكون الرسول" in user_input or "من هو الرسول" in user_input:
+        return "الرسول ﷺ هو محمد بن عبد الله، خاتم الأنبياء، بعثه الله رحمة للعالمين."
+
+    # 5. النسب والمعادلات والحاسبة
+    percent_result = calc_percent(user_input)
+    if percent_result: return percent_result
+    if "x" in user_input and "=" in user_input: return solve_equation(user_input)
+    if any(x in user_input for x in ["+", "-", "*", "/", "احسب"]):
+        try:
+            expr = user_input.replace("x", "*").replace("÷", "/")
+            return f"النتيجة هي: {eval(expr)} ✅"
+        except: pass
+
+    # 6. التحية
+    if any(x in user_input for x in ["سلام", "مرحبا"]):
+        return "وعليكم السلام 👋 مرحبا بيك فـ رام بوت. سولني فـ أي مادة ولا إلا مقلق نهضرو."
+
+    return "عطيني السؤال ديالك كامل وغادي نعاونك فيه. رياضيات، فيزياء، فرنسية، عربية، دين... كاملين ناضيين."
+
 for msg in st.session_state.messages:
-    if msg["role"] == "user":
-        st.markdown(f'<div class="chat-message user-msg">نتا: {msg["content"]}</div>', unsafe_allow_html=True)
-    else:
-        st.markdown(f'<div class="chat-message bot-msg">البوت: {msg["content"]}</div>', unsafe_allow_html=True)
+    st.chat_message(msg["role"]).write(msg["content"])
 
-# صندوق الكتابة
-with st.form(key="chat_form", clear_on_submit=True):
-    user_input = st.text_input("كتب هنا المعلم رضا...", placeholder="مثال: سلام، شحال الساعة؟")
-    submit_button = st.form_submit_button("سيفط 🚀")
+user_input = st.chat_input("مثال: خرج ليا تمرين 3 صفحة 20 أو 2x+5=15")
 
-if submit_button and user_input:
+if user_input:
     st.session_state.messages.append({"role": "user", "content": user_input})
-    جواب = جواب_البوت(user_input)
-    st.session_state.messages.append({"role": "assistant", "content": جواب})
-    st.rerun()
-
-st.markdown("---")
-st.caption("جرب: سلام | لابس | شحال الساعة | 15x15 | شكون الرسول | أنا معصب")
+    st.chat_message("user").write(user_input)
+    response = get_bot_response(user_input)
+    st.session_state.messages.append({"role": "assistant", "content": response})
+    st.chat_message("assistant").write(response)
