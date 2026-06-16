@@ -7,7 +7,7 @@ from spellchecker import SpellChecker
 
 st.set_page_config(page_title="رام بوت - المساعد الدراسي", page_icon="🤖", layout="centered")
 
-st.title("🤖 رام بوت برو v5.1")
+st.title("🤖 رام بوت برو v5.2")
 st.header("مطور: رضا مالكي")
 st.write("📚 حاسبة + معادلات + دين + دعم + قراءة الصور + كلام خفيف")
 
@@ -46,7 +46,7 @@ def solve_equation(eq_text):
     try:
         x = symbols('x')
         eq_text = eq_text.replace("=", "-(") + ")"
-        eq = Eq(eval(eq_text)), 0)
+        eq = Eq(eval(eq_text), 0) # ← صلحت القوس هنا
         solution = solve(eq, x)
         return f"✅ حل المعادلة: x = {solution[0]}"
     except:
@@ -109,7 +109,7 @@ def get_bot_response(message):
     msg_lower = message.lower().strip()
     lang = detect_lang(message)
 
-    # 1. كلام خفيف الأول
+    # 1. كلام خفيف
     casual = get_casual_response(msg_lower)
     if casual:
         return casual
@@ -179,4 +179,4 @@ if uploaded_file is not None:
         text = pytesseract.image_to_string(image, lang='ara+eng+fra')
 
     st.write("**📝 اللي قريت:**")
-    st.code(text)
+    st.code(text) 
