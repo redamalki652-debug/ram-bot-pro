@@ -3,7 +3,7 @@ from groq import Groq
 import base64
 
 st.set_page_config(
-    page_title="RAM Bot Ultra v1.1 Vision",
+    page_title="RAM Bot Ultra v1.2 Solver",
     page_icon="🤖",
     layout="centered"
 )
@@ -32,16 +32,16 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# البطاقة Ultra v1.1 Vision
+# البطاقة Ultra v1.2 Solver
 st.markdown("""
 <div class="card">
-    <h1>🤖 RAM Bot v1.1 Ultra Vision</h1>
+    <h1>🤖 RAM Bot v1.2 Ultra Solver</h1>
     <p><b>المطور:</b> رضا مالكي</p>
-    <p>كيهضر + كيقرا الصور بالذكاء الاصطناعي 📸</p>
+    <p>كيحل التمارين من الصور + كيهضر بالدارجة 📚</p>
 </div>
 """, unsafe_allow_html=True)
 
-# دالة باش نحولو الصورة لـ base64
+# دالة تحويل الصورة
 def encode_image(image):
     return base64.b64encode(image.getvalue()).decode('utf-8')
 
@@ -54,13 +54,13 @@ for msg in st.session_state.messages:
     if msg["role"]!= "system":
         with st.chat_message(msg["role"]):
             if "image" in msg:
-                st.image(msg["image"])
+                st.image(msg["image"], width=300)
             st.markdown(msg["content"])
 
-# رفع الصورة + خانة الكتابة
-uploaded_file = st.file_uploader("📸 صيفط صورة لـ RAM Bot", type=["png", "jpg", "jpeg"])
+# رفع الصورة
+uploaded_file = st.file_uploader("📸 صيفط صورة ديال التمرين", type=["png", "jpg", "jpeg"])
 
-if prompt := st.chat_input("سولني ولا وصف ليا الصورة...", key="chat_1"):
+if prompt := st.chat_input("كتب 'حل ليا التمارين'...", key="chat_1"):
 
     # إلا كاينة صورة
     if uploaded_file is not None:
@@ -78,11 +78,20 @@ if prompt := st.chat_input("سولني ولا وصف ليا الصورة...", ke
             st.markdown(prompt)
 
         with st.chat_message("assistant"):
-            with st.spinner("كنقرا الصورة..."):
+            with st.spinner("كنحل التمرين خطوة بخطوة..."):
                 try:
+                    # system prompt قوي باش يحل التمارين
                     system_prompt = {
                         "role": "system",
-                        "content": "نتا RAM Bot v1.1 Ultra Vision. المطور ديالك رضا مالكي. كتهضر بالدارجة. إلا عطاوك صورة وصفها مزيان وجاوب على أي سؤال عليها."
+                        "content": """نتا RAM Bot v1.2 Ultra Solver. المطور ديالك رضا مالكي.
+مهمتك الأساسية: إلا عطاوك صورة فيها تمارين مدرسية، حلها كاملة بالتفصيل بالدارجة المغربية.
+الطريقة:
+1. قرا السؤال مزيان من الصورة
+2. حل التمرين خطوة بخطوة
+3. شرح كل خطوة باش التلميد يفهم
+4. عطي النتيجة النهائية واضحة
+
+إلا الصورة ماشي ديال تمارين، وصفها عادي وجاوب على السؤال."""
                     }
 
                     messages = [
@@ -96,20 +105,20 @@ if prompt := st.chat_input("سولني ولا وصف ليا الصورة...", ke
                         }
                     ]
 
-                    # موديل Vision ديال Groq
                     chat_completion = client.chat.completions.create(
                         messages=messages,
-                        model="llama-3.2-90b-vision-preview"
+                        model="llama-3.2-90b-vision-preview",
+                        temperature=0.3 # نقصنا الحرارة باش الجواب يكون دقيق
                     )
                     response = chat_completion.choices[0].message.content
                     st.markdown(response)
                     st.session_state.messages.append({"role": "assistant", "content": response})
 
                 except Exception as e:
-                    st.error(f"خطأ فقراءة الصورة: {e}")
-                    st.info("جرب موديل نصي إلا الصورة ما بغاتش")
+                    st.error(f"خطأ: {e}")
+                    st.info("جرب تكتب 'حل ليا التمارين خطوة بخطوة' مع الصورة")
 
-    # إلا غير نص بلا صورة
+    # إلا غير نص
     else:
         st.session_state.messages.append({"role": "user", "content": prompt})
         with st.chat_message("user"):
@@ -117,7 +126,7 @@ if prompt := st.chat_input("سولني ولا وصف ليا الصورة...", ke
 
         with st.chat_message("assistant"):
             with st.spinner("كنفكر..."):
-                system_prompt = {"role": "system", "content": "نتا RAM Bot v1.1 Ultra. المطور ديالك رضا مالكي. كتهضر بالدارجة."}
+                system_prompt = {"role": "system", "content": "نتا RAM Bot v1.2 Ultra. المطور ديالك رضا مالكي. كتهضر بالدارجة."}
                 messages = [system_prompt] + st.session_state.messages
 
                 chat_completion = client.chat.completions.create(
@@ -128,7 +137,6 @@ if prompt := st.chat_input("سولني ولا وصف ليا الصورة...", ke
                 st.markdown(response)
                 st.session_state.messages.append({"role": "assistant", "content": response})
 
-# زر المسح
 if st.button("🗑️ مسح المحادثة", use_container_width=True, key="clear_1"):
     st.session_state.messages = []
     st.rerun()
