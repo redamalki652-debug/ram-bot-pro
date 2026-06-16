@@ -3,84 +3,117 @@ import re
 from sympy import symbols, Eq, solve
 from PIL import Image
 import pytesseract
+from spellchecker import SpellChecker
 
-# إعدادات الصفحة
-st.set_page_config(
-    page_title="رام بوت - المساعد الدراسي",
-    page_icon="🤖",
-    layout="centered"
-)
+st.set_page_config(page_title="رام بوت - المساعد الدراسي", page_icon="🤖", layout="centered")
 
-st.title("🤖 رام بوت برو v4.5")
-st.header("مطور: رضا مالكي")
-st.write("📚 معادلات + نسب % + دين + مواد + دعم نفسي + قراءة الصور")
+st.title("🤖 رام بوت برو v4.7")
+st.header("مطور: رضا مالكي") # سميتك غير هنا
+st.write("📚 معادلات + دردشة + تصحيح + قراءة الصور")
 
-# دالة حل المعادلات
+spell = SpellChecker(language='fr')
+spell_ar = SpellChecker()
+
+def correct_spelling(text):
+    words = text.split()
+    corrected = []
+    for word in words:
+        if any('\u0600' <= c <= '\u06FF' for c in word):
+            corrected.append(spell_ar.correction(word) or word)
+        else:
+            corrected.append(spell.correction(word) or word)
+    return ' '.join(corrected)
+
+def detect_lang(text):
+    if any('\u0600' <= c <= '\u06FF' for c in text):
+        return 'ar'
+    elif re.search(r'[a-zA-Z]', text):
+        return 'en'
+    return 'ar'
+
 def solve_equation(eq_text):
     try:
         x = symbols('x')
         eq_text = eq_text.replace("=", "-(") + ")"
         eq = Eq(eval(eq_text), 0)
         solution = solve(eq, x)
-        return f"✅ حل المعادلة: x = {solution[0]}"
+        return f"✅ Solution: x = {solution[0]}"
     except:
-        return "❌ ما قدرتش نحل المعادلة، كتبها بهاد الشكل: 2x + 5 = 15"
+        return "❌ ما قدرتش نحلها. كتبها: 2x + 5 = 15"
 
-# دالة الرد ديال البوت
+# هنا زدنا المحادثة العادية بلا سميتك
 def get_bot_response(message):
-    message = message.lower()
+    msg_lower = message.lower().strip()
+    lang = detect_lang(message)
 
-    if 'تمرين' in message or 'معادلة' in message:
-        return "كتب ليا المعادلة ديالك مثلا: 3x + 7 = 22\nولا صور التمرين من التحت 👇"
+    # محادثة عادية - كلام خفيف
+    greetings_ar = ['سلام', 'السلام عليكم', 'مرحبا', 'أهلا']
+    greetings_en = ['hello', 'hi', 'hey', 'salam']
+
+    if any(g in msg_lower for g in greetings_ar):
+        return "وعليكم السلام ورحمة الله 👋\nكيف نقدر نعاونك فـ الدراسة؟"
+
+    if any(g in msg_lower for g in greetings_en):
+        return "Hello! 👋 How can I help you with your studies?"
+
+    if 'شكون نتا' in msg_lower or 'من انت' in msg_lower or 'who are you' in msg_lower:
+        return "أنا رام بوت 🤖 مساعدك الدراسي\nكنعاونك فـ المعادلات، النسب، والتمارين. صور ليا تمرينك ونهضرو!"
+
+    if 'شكرا' in msg_lower or 'thank you' in msg_lower or 'thanks' in msg_lower:
+        return "العفو 🙏 مرحبا بيك فـ أي وقت\nبغيتي نحلو شي تمرين دابا؟"
+
+    if 'بخير' in msg_lower or 'كيف حالك' in msg_lower or 'how are you' in msg_lower:
+        return "أنا لاباس الحمد لله بخير 😊 وانت؟ واجد للقراية؟"
+
+    if 'معادلة' in msg_lower or 'تمرين' in msg_lower or 'equation' in msg_lower:
+        return "صيفط ليا المعادلة: 3x + 7 = 22\nولا صور التمرين من التحت 📸"
 
     if '=' in message and 'x' in message:
         return solve_equation(message)
 
-    if 'السلام' in message:
-        return "وعليكم السلام المعلم رضا مالكي! شنو نقدر نعاونك؟"
+    if lang == 'ar':
+        return "ما فهمتكش مزيان 😅 جرب تكتب معادلة ولا صور التمرين\nولا سولني: شكون نتا؟"
+    else:
+        return "I didn't get that 😅 Try writing an equation or upload an image\nOr ask: who are you?"
 
-    return "ما فهمتكش مزيان 😅 جرب تكتب معادلة ولا صور التمرين"
-
-# حفظ المحادثة
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-# عرض المحادثة القديمة
 for msg in st.session_state.messages:
     with st.chat_message(msg["role"]):
         st.markdown(msg["content"])
 
-# الشات
-user_input = st.chat_input("سولني أي حاجة...")
+user_input = st.chat_input("اكتب سؤالك / Write your question...")
 if user_input:
-    st.session_state.messages.append({"role": "user", "content": user_input})
-    with st.chat_message("user"):
-        st.markdown(user_input)
+    corrected_input = correct_spelling(user_input)
 
-    response = get_bot_response(user_input)
+    st.session_state.messages.append({"role": "user", "content": corrected_input})
+    with st.chat_message("user"):
+        st.markdown(corrected_input)
+        if corrected_input!= user_input:
+            st.caption(f"✓ صححت: {user_input} → {corrected_input}")
+
+    response = get_bot_response(corrected_input)
     st.session_state.messages.append({"role": "assistant", "content": response})
     with st.chat_message("assistant"):
         st.markdown(response)
 
-# فاصل بين الشات والصور
 st.divider()
-
-# خاصية رفع الصور وقراءة التمارين
-st.subheader("📸 صاور التمرين ونحلو ليك")
-uploaded_file = st.file_uploader("طلع الصورة هنا", type=['png', 'jpg', 'jpeg'])
+st.subheader("📸 Upload exercise / صاور التمرين")
+uploaded_file = st.file_uploader("Choose image / طلع الصورة", type=['png', 'jpg', 'jpeg'])
 
 if uploaded_file is not None:
     image = Image.open(uploaded_file)
-    st.image(image, caption="التمرين ديالك", use_column_width=True)
+    st.image(image, caption="Exercise / التمرين ديالك", use_column_width=True)
 
-    with st.spinner("كنقرا فـ التمرين..."):
-        text = pytesseract.image_to_string(image, lang='ara+eng')
+    with st.spinner("Reading... / كنقرا فـ التمرين..."):
+        text = pytesseract.image_to_string(image, lang='ara+eng+fra')
 
-    st.write("**📝 اللي قريت من الصورة:**")
+    st.write("**📝 Text read / اللي قريت:**")
     st.code(text)
 
     if text.strip():
-        st.write("**💡 الحل:**")
-        st.write("جرب تكتب المعادلة اللي خرجت ليك فـ الشات الفوق باش نحلها ليك")
-    else:
-        st.warning("ما قدرتش نقرا الكتابة، صور صورة أوضح")
+        corrected_text = correct_spelling(text)
+        st.write("**💡 After correction / بعد التصحيح:**")
+        st.code(corrected_text)
+        st.info("كوبي المعادلة وحطها فـ الشات الفوق") 
