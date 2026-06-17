@@ -1,3 +1,6 @@
 streamlit
 groq
 pillow
+requests
+gTTS==2.5.1
+streamlit-mic-recorder==0.0.4
