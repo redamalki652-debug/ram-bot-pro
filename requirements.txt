@@ -1,9 +1,6 @@
 streamlit
 groq
-replicate>=0.25.0
-python-dotenv
-gtts
 streamlit-mic-recorder
-pytesseract
-Pillow
+gtts
+replicate
 requests
