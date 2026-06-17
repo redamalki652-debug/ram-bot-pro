@@ -39,8 +39,17 @@ for msg in st.session_state.messages:
                 st.image(msg["image"], width=300)
             st.markdown(msg["content"])
 
-# الحل: كنبدلو key كل مرة باش نفرغو الـ uploader
 uploaded_file = st.file_uploader("📸 صيفط صورة ولا سول عادي", type=["png", "jpg", "jpeg"], key=f"uploader_{st.session_state.uploader_key}")
+
+def get_text_messages():
+    """كنرجعو غير messages ديال النص بلا الصور"""
+    text_msgs = []
+    for msg in st.session_state.messages:
+        if msg["role"] == "user":
+            text_msgs.append({"role": "user", "content": msg["content"]})
+        elif msg["role"] == "assistant":
+            text_msgs.append({"role": "assistant", "content": msg["content"]})
+    return text_msgs
 
 def process_with_image(image, prompt):
     image_b64 = encode_image(image)
@@ -80,7 +89,9 @@ def process_text_only(prompt):
         with st.spinner("كنجاوب..."):
             system_prompt = {"role": "system", "content": "نتا RAM Bot v1.0 Ultra. المطور ديالك رضا مالكي. كتهضر بالدارجة المغربية. جاوب بمعلومات دقيقة ومفيدة."}
 
-            messages = [system_prompt] + st.session_state.messages + [{"role": "user", "content": prompt}]
+            # الحل: كنستعملو get_text_messages() باش نحيدو الصور من الـ history
+            text_messages = get_text_messages()
+            messages = [system_prompt] + text_messages + [{"role": "user", "content": prompt}]
 
             chat_completion = client.chat.completions.create(
                 messages=messages,
@@ -98,7 +109,6 @@ prompt_text_only = st.chat_input("كتب سؤالك هنا...", key="text_only")
 
 if uploaded_file is not None and prompt_with_image:
     process_with_image(uploaded_file, prompt_with_image)
-    # الحل: نزيدو 1 للـ key باش نفرغو الـ uploader بلا Error
     st.session_state.uploader_key += 1
     st.rerun()
 
