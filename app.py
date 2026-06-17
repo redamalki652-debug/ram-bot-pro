@@ -38,7 +38,6 @@ for msg in st.session_state.messages:
 
 uploaded_file = st.file_uploader("📸 صيفط صورة ولا سول عادي", type=["png", "jpg", "jpeg"])
 
-# دالة معالجة الصورة
 def process_with_image(image, prompt):
     image_b64 = encode_image(image)
     image_url = f"data:image/jpeg;base64,{image_b64}"
@@ -68,7 +67,6 @@ def process_with_image(image, prompt):
             st.session_state.messages.append({"role": "user", "content": prompt, "image": image})
             st.session_state.messages.append({"role": "assistant", "content": response})
 
-# دالة معالجة النص فقط
 def process_text_only(prompt):
     with st.chat_message("user"):
         st.markdown(prompt)
@@ -89,14 +87,15 @@ def process_text_only(prompt):
             st.session_state.messages.append({"role": "user", "content": prompt})
             st.session_state.messages.append({"role": "assistant", "content": response})
 
-# المنطق المهم هنا:
-if uploaded_file is not None and prompt := st.chat_input("كتب سؤالك على الصورة هنا..."):
-    # إلا كاينة صورة + كتب شي حاجة → سول على الصورة
-    process_with_image(uploaded_file, prompt)
+# هنا فين كان الخطأ - صلحناه
+prompt_with_image = st.chat_input("كتب سؤالك على الصورة هنا...")
+prompt_text_only = st.chat_input("كتب سؤالك هنا...", key="text_only")
 
-elif prompt := st.chat_input("كتب سؤالك هنا...", key="text_only"):
-    # إلا كتب غير نص بلا صورة → جاوب نصي عادي
-    process_text_only(prompt)
+if uploaded_file is not None and prompt_with_image:
+    process_with_image(uploaded_file, prompt_with_image)
+
+elif prompt_text_only:
+    process_text_only(prompt_text_only)
 
 if st.button("🗑️ مسح المحادثة"):
     st.session_state.messages = []
