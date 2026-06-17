@@ -1,6 +1,4 @@
 streamlit
 groq
-pillow
-requests
-gTTS==2.5.1
-streamlit-mic-recorder==0.0.4
+replicate>=0.25.0
+python-dotenv
