@@ -1,104 +1,30 @@
 import streamlit as st
-from groq import Groq
-import base64
+import google.generativeai as genai
+from PIL import Image
 
-st.set_page_config(page_title="RAM Bot v1.0 Ultra", page_icon="🤖", layout="centered")
+# ... باقي الكود ديالك ...
 
-GROQ_KEY = st.secrets["GROQ_KEY"]
-client = Groq(api_key=GROQ_KEY)
+uploaded_file = st.file_uploader("رفع صورة", type=["jpg", "jpeg", "png"], key="uploader")
 
-st.markdown("""
-<style>
-.stApp {background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);}
-.card {background: white; padding: 2rem; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); margin-bottom: 2rem; text-align: center;}
-.card h1 {color: #667eea; margin: 0;}
-</style>
-""", unsafe_allow_html=True)
+if uploaded_file is not None:
+    image = Image.open(uploaded_file)
+    st.image(image, caption="الصورة المرفوعة", use_column_width=True)
+    
+    if st.button("حلل الصورة"):
+        with st.spinner("كنحلل الصورة..."):
+            model = genai.GenerativeModel('gemini-1.5-flash')
+            prompt = "وصف ليا هاد الصورة بالتفصيل بالعربية"
+            response = model.generate_content([prompt, image])
+            st.write(response.text)
+            
+            # أهم سطر: نفرغو الصورة باش ما تبقاش فالذاكرة
+            st.session_state.uploader = None
+            st.rerun()
 
-st.markdown("""
-<div class="card">
-    <h1>🤖 RAM Bot v1.0 Ultra</h1>
-    <p><b>المطور:</b> رضا مالكي</p>
-    <p>كيهضر بالدارجة + كيقرا الصور + كيحل التمارين</p>
-</div>
-""", unsafe_allow_html=True)
-
-def encode_image(image):
-    return base64.b64encode(image.getvalue()).decode('utf-8')
-
-if "messages" not in st.session_state:
-    st.session_state.messages = []
-
-for msg in st.session_state.messages:
-    if msg["role"]!= "system":
-        with st.chat_message(msg["role"]):
-            if "image" in msg and msg["image"]:
-                st.image(msg["image"], width=300)
-            st.markdown(msg["content"])
-
-uploaded_file = st.file_uploader("📸 صيفط صورة ولا سول عادي", type=["png", "jpg", "jpeg"])
-
-def process_with_image(image, prompt):
-    image_b64 = encode_image(image)
-    image_url = f"data:image/jpeg;base64,{image_b64}"
-
-    with st.chat_message("user"):
-        st.image(image, width=300)
-        st.markdown(prompt)
-
-    with st.chat_message("assistant"):
-        with st.spinner("كنقرا الصورة..."):
-            system_prompt = {"role": "system", "content": "نتا RAM Bot v1.0 Ultra. المطور ديالك رضا مالكي. كتهضر بالدارجة المغربية. إلا عطاوك صورة: وصفها مزيان وجاوب على أي سؤال عليها. إلا فيها تمارين حلها خطوة بخطوة"}
-
-            user_content = [
-                {"type": "text", "text": prompt},
-                {"type": "image_url", "image_url": {"url": image_url}}
-            ]
-
-            messages = [system_prompt] + st.session_state.messages + [{"role": "user", "content": user_content}]
-
-            chat_completion = client.chat.completions.create(
-                messages=messages,
-                model="meta-llama/llama-4-scout-17b-16e-instruct",
-                temperature=0.7
-            )
-            response = chat_completion.choices[0].message.content
-            st.markdown(response)
-            st.session_state.messages.append({"role": "user", "content": prompt, "image": image})
-            st.session_state.messages.append({"role": "assistant", "content": response})
-
-def process_text_only(prompt):
-    with st.chat_message("user"):
-        st.markdown(prompt)
-
-    with st.chat_message("assistant"):
-        with st.spinner("كنجاوب..."):
-            system_prompt = {"role": "system", "content": "نتا RAM Bot v1.0 Ultra. المطور ديالك رضا مالكي. كتهضر بالدارجة المغربية"}
-
-            messages = [system_prompt] + st.session_state.messages + [{"role": "user", "content": prompt}]
-
-            chat_completion = client.chat.completions.create(
-                messages=messages,
-                model="llama-3.3-70b-versatile",
-                temperature=0.7
-            )
-            response = chat_completion.choices[0].message.content
-            st.markdown(response)
-            st.session_state.messages.append({"role": "user", "content": prompt})
-            st.session_state.messages.append({"role": "assistant", "content": response})
-
-# هنا فين كان الخطأ - صلحناه
-prompt_with_image = st.chat_input("كتب سؤالك على الصورة هنا...")
-prompt_text_only = st.chat_input("كتب سؤالك هنا...", key="text_only")
-
-if uploaded_file is not None and prompt_with_image:
-    process_with_image(uploaded_file, prompt_with_image)
-
-elif prompt_text_only:
-    process_text_only(prompt_text_only)
-
-if st.button("🗑️ مسح المحادثة"):
-    st.session_state.messages = []
-    st.rerun()
-
-st.markdown("<div style='text-align: center; color: white; margin-top: 2rem;'>صنع بـ ❤️ بواسطة رضا مالكي</div>", unsafe_allow_html=True)
+# باقي الكود ديال السؤال العادي
+user_input = st.text_input("سول سؤال عادي بلا صورة:")
+if user_input:
+    # هنا غيجاوب عادي بلا ما يربطو بالصورة القديمة
+    model = genai.GenerativeModel('gemini-1.5-flash')
+    response = model.generate_content(user_input)
+    st.write(response.text)
