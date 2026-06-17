@@ -1,8 +1,9 @@
 import streamlit as st
 from groq import Groq
 import base64
+import requests
 
-st.set_page_config(page_title="RAM Bot v2.0 AI", page_icon="🤖", layout="centered")
+st.set_page_config(page_title="RAM Bot v2.1 AI", page_icon="🤖", layout="centered")
 
 GROQ_KEY = st.secrets["GROQ_KEY"]
 client = Groq(api_key=GROQ_KEY)
@@ -17,9 +18,9 @@ st.markdown("""
 
 st.markdown("""
 <div class="card">
-    <h1>🤖 RAM Bot v2.0 AI</h1>
+    <h1>🤖 RAM Bot v2.1 AI</h1>
     <p><b>المطور:</b> رضا مالكي</p>
-    <p>كيهضر بالدارجة + كيقرا الصور + كيولد تصاور بالذكاء الاصطناعي 🎨</p>
+    <p>كيهضر بالدارجة + كيقرا الصور + كيولد تصاور مجاني 🎨</p>
 </div>
 """, unsafe_allow_html=True)
 
@@ -27,15 +28,16 @@ def encode_image(image):
     return base64.b64encode(image.getvalue()).decode('utf-8')
 
 def generate_image(prompt):
-    """توليد صورة بالذكاء الاصطناعي FLUX"""
+    """توليد صورة مجاني بلا Credits - Pollinations.ai"""
     with st.spinner("كنرسم ليك الصورة... صبر شوية 🎨"):
         try:
-            chat_completion = client.chat.completions.create(
-                messages=[{"role": "user", "content": f"Create a detailed image: {prompt}"}],
-                model="black-forest-labs/FLUX.1-schnell",
-                max_tokens=1024
-            )
-            return chat_completion.choices[0].message.content
+            clean_prompt = prompt.replace("ولد ليا", "").replace("صاوب ليا", "").replace("رسم ليا", "").replace("صورة ديال", "").strip()
+            url = f"https://image.pollinations.ai/prompt/{clean_prompt}?width=1024&height=1024&model=flux&enhance=true"
+            response = requests.get(url, timeout=30)
+            if response.status_code == 200:
+                return response.content # كيرجع الصورة ديريكت bytes
+            else:
+                return f"Error: {response.status_code}"
         except Exception as e:
             return f"Error: {str(e)}"
 
@@ -73,7 +75,7 @@ def process_with_image(image, prompt):
         st.markdown(prompt)
     with st.chat_message("assistant"):
         with st.spinner("كنقرا الصورة..."):
-            system_prompt = {"role": "system", "content": "نتا RAM Bot v2.0. المطور ديالك رضا مالكي. كتهضر بالدارجة. إلا عطاوك صورة وصفها وجاوب. إلا فيها تمارين حلها خطوة بخطوة."}
+            system_prompt = {"role": "system", "content": "نتا RAM Bot v2.1. المطور ديالك رضا مالكي. كتهضر بالدارجة المغربية. إلا عطاوك صورة وصفها وجاوب. إلا فيها تمارين حلها خطوة بخطوة."}
             user_content = [{"type": "text", "text": prompt}, {"type": "image_url", "image_url": {"url": image_url}}]
             messages = [system_prompt] + st.session_state.messages + [{"role": "user", "content": user_content}]
             chat_completion = client.chat.completions.create(messages=messages, model="meta-llama/llama-4-scout-17b-16e-instruct", temperature=0.7, max_tokens=2048)
@@ -87,14 +89,14 @@ def process_text_only(prompt):
         st.markdown(prompt)
     with st.chat_message("assistant"):
         with st.spinner("كنجاوب..."):
-            system_prompt = {"role": "system", "content": "نتا RAM Bot v2.0. المطور ديالك رضا مالكي. كتهضر بالدارجة المغربية."}
+            system_prompt = {"role": "system", "content": "نتا RAM Bot v2.1. المطور ديالك رضا مالكي. كتهضر بالدارجة المغربية."}
             text_messages = get_text_messages()
             messages = [system_prompt] + text_messages + [{"role": "user", "content": prompt}]
             chat_completion = client.chat.completions.create(messages=messages, model="llama-3.3-70b-versatile", temperature=0.7, max_tokens=1024)
             response = chat_completion.choices[0].message.content
             st.markdown(response)
             st.session_state.messages.append({"role": "user", "content": prompt})
-            st.session_state.messages.append({"assistant": "assistant", "content": response})
+            st.session_state.messages.append({"role": "assistant", "content": response})
 
 prompt_with_image = st.chat_input("كتب سؤالك على الصورة هنا...")
 prompt_text_only = st.chat_input("كتب سؤالك هنا... ولا قول 'ولد ليا صورة ديال...'", key="text_only")
@@ -110,13 +112,13 @@ elif prompt_text_only:
         with st.chat_message("user"):
             st.markdown(prompt_text_only)
         with st.chat_message("assistant"):
-            image_url = generate_image(prompt_text_only)
-            if "Error" in image_url:
-                st.error("ما قدرتش نولد الصورة دابا. جرب مرة أخرى")
-            else:
-                st.image(image_url)
+            image_bytes = generate_image(prompt_text_only)
+            if isinstance(image_bytes, bytes): # إلا رجعت الصورة
+                st.image(image_bytes)
                 st.session_state.messages.append({"role": "user", "content": prompt_text_only})
-                st.session_state.messages.append({"role": "assistant", "content": image_url, "image": "ai_generated"})
+                st.session_state.messages.append({"role": "assistant", "content": image_bytes, "image": "ai_generated"})
+            else: # إلا كان Error
+                st.error("ما قدرتش نولد الصورة دابا. جرب مرة أخرى")
     else:
         process_text_only(prompt_text_only)
 
