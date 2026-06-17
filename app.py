@@ -12,12 +12,11 @@ import os
 
 st.set_page_config(page_title="RAM Bot v2.0 AI", page_icon="🤖", layout="centered")
 
-# قراءة التوكنز - سميتهم مصحين
+# قراءة التوكنز من Secrets
 GROQ_KEY = st.secrets["GROQ_KEY"]
 REPLICATE_API_TOKEN = st.secrets["REPLICATE_API_TOKEN"]
-
-# تفعيل التوكن ديال Replicate
 os.environ["REPLICATE_API_TOKEN"] = REPLICATE_API_TOKEN
+
 client = Groq(api_key=GROQ_KEY)
 
 st.markdown("""
@@ -32,14 +31,12 @@ st.markdown("""
 <div class="card">
     <h1>🤖 RAM Bot v2.0 AI</h1>
     <p><b>المطور:</b> رضا مالكي</p>
-    <p>فيديو AI بالتوكن ⚡ + صوت 🎤 + صور 📸 + حل تمارين</p>
+    <p>فيديو AI بالتوكن ⚡ + صور AI 📸 + صوت 🎤</p>
 </div>
 """, unsafe_allow_html=True)
 
 def translate_to_english(text):
-    """ترجمة بالقاموس بلا Groq"""
     text = text.lower().replace("ولد ليا فيديو ديال", "").replace("ولد ليا صورة ديال", "").replace("ولد ليا", "").replace("فيديو ديال", "").replace("صورة ديال", "").strip()
-
     dict = {
         "قط": "cat running, cute, detailed",
         "كلب": "dog running, cute, detailed",
@@ -48,21 +45,15 @@ def translate_to_english(text):
         "سيارة": "car driving fast, motion blur",
         "شمس": "sunset, beautiful sky, golden hour",
         "ولد": "boy, child, playing",
-        "بنت": "girl, child, smiling",
-        "طير": "bird flying, wings",
-        "ورد": "flowers, roses, garden",
-        "غابة": "forest, trees, nature",
-        "سماء": "sky, clouds, blue sky"
+        "بنت": "girl, child, smiling"
     }
-
     for ar, en in dict.items():
         if ar in text:
             return en + ", smooth motion, 4k, high quality"
-
     return text + ", smooth motion, 4k, high quality" if text else "beautiful scene, smooth motion, 4k"
 
 def generate_video_replicate(prompt):
-    """فيديو بالتوكن ديال Replicate - Wan 2.2"""
+    """فيديو بالتوكن ديال Replicate - Wan 2.2 سريع"""
     eng_prompt = translate_to_english(prompt)
     st.info(f"Prompt: {eng_prompt}")
 
@@ -75,19 +66,19 @@ def generate_video_replicate(prompt):
                     "duration": 5,
                     "aspect_ratio": "1:1",
                     "fps": 16,
-                    "negative_prompt": "blurry, low quality, distorted, watermark"
+                    "negative_prompt": "blurry, low quality, distorted"
                 }
             )
 
-        # Replicate كيعطي ليان
         video_url = output[0] if isinstance(output, list) else output
         video_data = requests.get(video_url).content
         return video_data, "Replicate Wan 2.2 بالتوكن ديالك"
 
     except Exception as e:
-        return None, f"خطأ: {str(e)}. شوف واش عندك كريدت فـ replicate.com"
+        return None, f"خطأ: {str(e)}. شوف الكريدت ديالك فـ replicate.com"
 
 def generate_image(prompt):
+    """صور AI بـ Pollinations فابور"""
     with st.spinner("كنرسم ليك الصورة... 🎨"):
         eng_prompt = translate_to_english(prompt)
         st.info(f"Prompt: {eng_prompt}")
@@ -127,10 +118,7 @@ with col1:
 with col2:
     uploaded_file = st.file_uploader("📸 صيفط صورة ديال تمرين", type=["png", "jpg", "jpeg"], key=f"uploader_{st.session_state.uploader_key}")
 
-# طبلون 1: خاص بالصورة
 prompt_with_image = st.chat_input("كتب سؤالك على الصورة هنا...", key="chat_input_img")
-
-# طبلون 2: خاص بالنص والفيديو
 prompt_text_only = st.chat_input("كتب سؤالك هنا... ولا 'ولد ليا فيديو/صورة ديال...'", key="chat_input_text")
 
 # الصوت
@@ -145,24 +133,18 @@ if audio and audio["bytes"]:
         st.success(f"سمعتك: {transcription}")
         prompt_text_only = transcription
 
-# 1. معالجة الصورة
+# معالجة الصورة
 if uploaded_file is not None and prompt_with_image:
     image_b64 = base64.b64encode(uploaded_file.getvalue()).decode()
     image_url = f"data:image/jpeg;base64,{image_b64}"
-
     with st.chat_message("user"):
         st.image(uploaded_file, width=300)
         st.markdown(prompt_with_image)
-
     with st.chat_message("assistant"):
         with st.spinner("كنقرا الصورة وكنحل التمرين..."):
             system_prompt = {"role": "system", "content": "نتا RAM Bot. المطور رضا مالكي. كتهضر بالدارجة المغربية باختصار. إلا عطاوك صورة ديال تمرين حلّو خطوة بخطوة."}
             user_content = [{"type": "text", "text": prompt_with_image}, {"type": "image_url", "image_url": {"url": image_url}}]
-            chat_completion = client.chat.completions.create(
-                messages=[system_prompt, {"role": "user", "content": user_content}],
-                model="meta-llama/llama-4-scout-17b-16e-instruct",
-                max_tokens=800
-            )
+            chat_completion = client.chat.completions.create(messages=[system_prompt, {"role": "user", "content": user_content}], model="meta-llama/llama-4-scout-17b-16e-instruct", max_tokens=800)
             response = chat_completion.choices[0].message.content
             st.markdown(response)
             audio_bytes = speak(response)
@@ -172,7 +154,7 @@ if uploaded_file is not None and prompt_with_image:
             st.session_state.uploader_key += 1
             st.rerun()
 
-# 2. معالجة النص والفيديو
+# معالجة النص
 elif prompt_text_only:
     with st.chat_message("user"):
         st.markdown(prompt_text_only)
@@ -205,11 +187,7 @@ elif prompt_text_only:
 
     else:
         with st.chat_message("assistant"):
-            chat_completion = client.chat.completions.create(
-                messages=[{"role": "system", "content": "نتا RAM Bot v2.0. المطور رضا مالكي. كتهضر بالدارجة المغربية باختصار."}, {"role": "user", "content": prompt_text_only}],
-                model="llama-3.3-70b-versatile",
-                max_tokens=300
-            )
+            chat_completion = client.chat.completions.create(messages=[{"role": "system", "content": "نتا RAM Bot v2.0. المطور رضا مالكي. كتهضر بالدارجة المغربية باختصار."}, {"role": "user", "content": prompt_text_only}], model="llama-3.3-70b-versatile", max_tokens=300)
             response = chat_completion.choices[0].message.content
             st.markdown(response)
             audio_bytes = speak(response)
