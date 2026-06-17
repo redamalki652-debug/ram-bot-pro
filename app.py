@@ -60,17 +60,18 @@ def generate_video(prompt):
             return f"Error: {str(e)}"
 
 def speak(text):
-    """تحويل النص لصوت"""
     tts = gTTS(text=text, lang='ar')
     buf = io.BytesIO()
     tts.write_to_fp(buf)
     return buf.getvalue()
 
+# تهيئة الذاكرة
 if "messages" not in st.session_state:
     st.session_state.messages = []
 if "uploader_key" not in st.session_state:
     st.session_state.uploader_key = 0
 
+# عرض المحادثة
 for msg in st.session_state.messages:
     if msg["role"]!= "system":
         with st.chat_message(msg["role"]):
@@ -93,7 +94,7 @@ with col2:
 def get_text_messages():
     text_msgs = []
     for msg in st.session_state.messages:
-        if msg["role"] == "user":
+        if msg["role"] == "user" and "image" not in msg:
             text_msgs.append({"role": "user", "content": msg["content"]})
         elif msg["role"] == "assistant":
             text_msgs.append({"role": "assistant", "content": msg["content"]})
@@ -141,7 +142,7 @@ def process_text_only(prompt):
 prompt_with_image = st.chat_input("كتب سؤالك على الصورة هنا...")
 prompt_text_only = st.chat_input("كتب سؤالك هنا... ولا قول 'ولد ليا صورة/فيديو ديال...'", key="text_only")
 
-# معالجة الصوت المسجل
+# معالجة الصوت
 if audio and audio["bytes"]:
     with st.spinner("كنسمعك..."):
         audio_bytes = audio["bytes"]
@@ -160,7 +161,6 @@ elif uploaded_file is not None and prompt_with_image:
     st.rerun()
 
 elif prompt_text_only:
-    # صورة
     if any(word in prompt_text_only for word in ["ولد ليا صورة", "صاوب ليا صورة", "رسم ليا"]):
         with st.chat_message("user"):
             st.markdown(prompt_text_only)
@@ -176,7 +176,6 @@ elif prompt_text_only:
             else:
                 st.error("ما قدرتش نولد الصورة")
 
-    # فيديو
     elif any(word in prompt_text_only for word in ["ولد ليا فيديو", "صاوب ليا فيديو"]):
         with st.chat_message("user"):
             st.markdown(prompt_text_only)
@@ -191,13 +190,16 @@ elif prompt_text_only:
                 st.session_state.messages.append({"role": "assistant", "content": response, "audio": audio_bytes})
             else:
                 st.error(f"خطأ: {video_url}")
-
     else:
         process_text_only(prompt_text_only)
 
-if st.button("🗑️ مسح المحادثة", use_container_width=True):
+# زر مسح المحادثة - مصلح 100%
+if st.button("🗑️ مسح المحادثة", use_container_width=True, type="primary"):
+    for key in list(st.session_state.keys()):
+        del st.session_state[key]
     st.session_state.messages = []
     st.session_state.uploader_key = 0
+    st.success("تم مسح المحادثة ✅")
     st.rerun()
 
 st.markdown("<div style='text-align: center; color: white; margin-top: 2rem;'>صنع بـ ❤️ بواسطة رضا مالكي</div>", unsafe_allow_html=True)
