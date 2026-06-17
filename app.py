@@ -63,46 +63,46 @@ def generate_image(prompt):
             return f"Error: {str(e)}"
 
 def generate_video_pollinations(prompt):
-    """Backup مجاني 100%"""
+    """Backup مجاني 100% Turbo"""
     try:
         eng_prompt = translate_to_english(prompt)
         encoded = urllib.parse.quote(eng_prompt)
-        url = f"https://image.pollinations.ai/video/{encoded}?model=alegria&nologo=true"
-
+        url = f"https://image.pollinations.ai/video/{encoded}?model=turbo&nologo=true&width=512&height=512"
         response = requests.get(url, timeout=60)
-        if response.status_code == 200:
-            return response.content, "Pollinations مجاني"
+        if response.status_code == 200 and len(response.content) > 1000:
+            return response.content, "Pollinations Turbo"
         else:
-            return None, f"Pollinations Error {response.status_code}"
+            return None, f"Pollinations فشل {response.status_code}"
     except Exception as e:
         return None, str(e)
 
 def generate_video(prompt):
-    with st.spinner("كنولد الفيديو... صبر 30 ثانية 🎬"):
+    with st.spinner("كنجرب Replicate الأول..."):
         eng_prompt = translate_to_english(prompt)
         st.info(f"Prompt: {eng_prompt}")
 
-        # المحاولة 1: Replicate المجاني
+        # محاولة 1: Replicate Seedance مستقر ومجاني
         try:
             output = replicate.run(
-                "wavespeedai/wan-2.1-i2v-14b-720",
-                input={"prompt": eng_prompt, "duration": 5, "fps": 16}
+                "bytedance/seedance-1-pro",
+                input={"prompt": eng_prompt, "duration": 5, "resolution": "512p", "aspect_ratio": "1:1"}
             )
             if output:
                 video_url = str(output)
-                with st.spinner("كنحمل من Replicate..."):
+                with st.spinner("كنحمل من Seedance..."):
                     video_response = requests.get(video_url, timeout=60)
-                    if video_response.status_code == 200:
-                        return video_response.content, "Replicate مجاني"
+                    if video_response.status_code == 200 and len(video_response.content) > 1000:
+                        return video_response.content, "Seedance Replicate"
         except Exception as e:
-            st.warning(f"Replicate بلع: {str(e)[:50]}... كنجرب Pollinations")
+            st.warning(f"Replicate: {str(e)[:50]}... كنقلب لـ Pollinations")
 
-        # المحاولة 2: Pollinations backup فابور
-        video_bytes, source = generate_video_pollinations(prompt)
-        if video_bytes:
-            return video_bytes, source
-        else:
-            return f"Error: Replicate و Pollinations بجوج فشلو. {source}", source
+        # محاولة 2: Pollinations Turbo أسرع
+        with st.spinner("كنجرب Pollinations Turbo 3 ثواني..."):
+            video_bytes, source = generate_video_pollinations(prompt)
+            if video_bytes:
+                return video_bytes, source
+            else:
+                return None, "بجوج فشلو - جرب بدون شخصيات مشهورة"
 
 def speak(text):
     tts = gTTS(text=text, lang='ar')
@@ -220,13 +220,13 @@ elif prompt_text_only:
             else:
                 st.error(f"خطأ فتوليد الصورة: {result}")
 
-    # فيديو - دابا فيه 2 مصادر
+    # فيديو - دابا Seedance + Pollinations
     elif any(word in prompt_text_only for word in ["ولد ليا فيديو", "صاوب ليا فيديو", "فيديو ديال"]):
         with st.chat_message("user"):
             st.markdown(prompt_text_only)
         with st.chat_message("assistant"):
             result, source = generate_video(prompt_text_only)
-            if isinstance(result, bytes):
+            if isinstance(result, bytes) and len(result) > 1000:
                 st.video(result)
                 st.caption(f"المصدر: {source}")
                 response = f"ها هو الفيديو ديالك 🎬 من {source}"
@@ -235,7 +235,7 @@ elif prompt_text_only:
                 st.session_state.messages.append({"role": "user", "content": prompt_text_only})
                 st.session_state.messages.append({"role": "assistant", "content": response, "audio": audio_bytes, "video": result, "source": source})
             else:
-                st.error(f"خطأ: {result}")
+                st.error("الفيديو ما تولدش ❌ جرب: قط، بحر، مطر، مدينة، سيارة - بلا Goku/Naruto")
     else:
         process_text_only(prompt_text_only)
 
