@@ -7,6 +7,7 @@ import replicate
 from gtts import gTTS
 from streamlit_mic_recorder import mic_recorder
 import io
+import urllib.parse
 
 st.set_page_config(page_title="RAM Bot v2.2 AI", page_icon="🤖", layout="centered")
 
@@ -61,30 +62,47 @@ def generate_image(prompt):
         except Exception as e:
             return f"Error: {str(e)}"
 
+def generate_video_pollinations(prompt):
+    """Backup مجاني 100%"""
+    try:
+        eng_prompt = translate_to_english(prompt)
+        encoded = urllib.parse.quote(eng_prompt)
+        url = f"https://image.pollinations.ai/video/{encoded}?model=alegria&nologo=true"
+
+        response = requests.get(url, timeout=60)
+        if response.status_code == 200:
+            return response.content, "Pollinations مجاني"
+        else:
+            return None, f"Pollinations Error {response.status_code}"
+    except Exception as e:
+        return None, str(e)
+
 def generate_video(prompt):
-    with st.spinner("كنولد الفيديو... صبر 40 ثانية 🎬"):
+    with st.spinner("كنولد الفيديو... صبر 30 ثانية 🎬"):
+        eng_prompt = translate_to_english(prompt)
+        st.info(f"Prompt: {eng_prompt}")
+
+        # المحاولة 1: Replicate المجاني
         try:
-            eng_prompt = translate_to_english(prompt)
-            st.info(f"Prompt: {eng_prompt}")
-
             output = replicate.run(
-                "minimax/video-01",
-                input={"prompt": eng_prompt, "aspect_ratio": "16:9"}
+                "wavespeedai/wan-2.1-i2v-14b-720",
+                input={"prompt": eng_prompt, "duration": 5, "fps": 16}
             )
-
             if output:
                 video_url = str(output)
-                with st.spinner("كنحمل الفيديو..."):
+                with st.spinner("كنحمل من Replicate..."):
                     video_response = requests.get(video_url, timeout=60)
                     if video_response.status_code == 200:
-                        return video_response.content
-                    else:
-                        return f"Error download: {video_response.status_code}"
-            else:
-                return "Error: Replicate مرجعش فيديو"
-
+                        return video_response.content, "Replicate مجاني"
         except Exception as e:
-            return f"Error: {str(e)}"
+            st.warning(f"Replicate بلع: {str(e)[:50]}... كنجرب Pollinations")
+
+        # المحاولة 2: Pollinations backup فابور
+        video_bytes, source = generate_video_pollinations(prompt)
+        if video_bytes:
+            return video_bytes, source
+        else:
+            return f"Error: Replicate و Pollinations بجوج فشلو. {source}", source
 
 def speak(text):
     tts = gTTS(text=text, lang='ar')
@@ -95,7 +113,7 @@ def speak(text):
 def encode_image(image):
     return base64.b64encode(image.getvalue()).decode('utf-8')
 
-# الذاكرة - مصلح باش ما يرجعش المحادثة القديمة
+# الذاكرة
 if "messages" not in st.session_state:
     st.session_state.messages = []
 if "uploader_key" not in st.session_state:
@@ -110,6 +128,8 @@ for msg in st.session_state.messages:
                 st.image(msg["content"], caption="صورة مولدة")
             elif "video" in msg:
                 st.video(msg["video"])
+                if "source" in msg:
+                    st.caption(f"المصدر: {msg['source']}")
             elif "audio" in msg:
                 st.audio(msg["audio"], format="audio/mp3")
             else:
@@ -148,7 +168,6 @@ def process_text_only(prompt):
             st.session_state.messages.append({"role": "user", "content": prompt})
             st.session_state.messages.append({"role": "assistant", "content": response, "audio": audio_bytes})
 
-# استعملنا key مختلف باش chat_input ما يحفظش القيمة القديمة
 prompt_with_image = st.chat_input("كتب سؤالك على الصورة هنا...", key="chat_input_img")
 prompt_text_only = st.chat_input("كتب سؤالك هنا... ولا قول 'ولد ليا صورة/فيديو ديال...'", key="chat_input_text")
 
@@ -201,34 +220,31 @@ elif prompt_text_only:
             else:
                 st.error(f"خطأ فتوليد الصورة: {result}")
 
-    # فيديو
+    # فيديو - دابا فيه 2 مصادر
     elif any(word in prompt_text_only for word in ["ولد ليا فيديو", "صاوب ليا فيديو", "فيديو ديال"]):
         with st.chat_message("user"):
             st.markdown(prompt_text_only)
         with st.chat_message("assistant"):
-            result = generate_video(prompt_text_only)
+            result, source = generate_video(prompt_text_only)
             if isinstance(result, bytes):
                 st.video(result)
-                response = "ها هو الفيديو ديالك 🎬"
+                st.caption(f"المصدر: {source}")
+                response = f"ها هو الفيديو ديالك 🎬 من {source}"
                 audio_bytes = speak(response)
                 st.audio(audio_bytes, format="audio/mp3")
                 st.session_state.messages.append({"role": "user", "content": prompt_text_only})
-                st.session_state.messages.append({"role": "assistant", "content": response, "audio": audio_bytes, "video": result})
+                st.session_state.messages.append({"role": "assistant", "content": response, "audio": audio_bytes, "video": result, "source": source})
             else:
-                st.error(f"خطأ فتوليد الفيديو: {result}")
+                st.error(f"خطأ: {result}")
     else:
         process_text_only(prompt_text_only)
 
-# مسح المحادثة - مصلح نهائي 100%
+# مسح المحادثة
 if st.button("🗑️ مسح المحادثة", use_container_width=True, type="primary"):
-    # نمسحو كلشي بما فيهم chat_input
     for key in list(st.session_state.keys()):
         del st.session_state[key]
-
-    # نعاودو نبداو من الصفر
     st.session_state.messages = []
     st.session_state.uploader_key = 0
-
     st.success("تم مسح المحادثة ✅")
     st.rerun()
 
