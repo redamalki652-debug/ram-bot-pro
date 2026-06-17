@@ -8,7 +8,7 @@ import io
 import tempfile
 import os
 
-st.set_page_config(page_title="RAM Bot v3.0 Voice AI", page_icon="🎤", layout="centered")
+st.set_page_config(page_title="RAM Bot v3.1 Voice AI", page_icon="🎤", layout="centered")
 
 GROQ_KEY = st.secrets["GROQ_KEY"]
 client = Groq(api_key=GROQ_KEY)
@@ -23,7 +23,7 @@ st.markdown("""
 
 st.markdown("""
 <div class="card">
-    <h1>🎤 RAM Bot v3.0 Voice AI</h1>
+    <h1>🎤 RAM Bot v3.1 Voice AI</h1>
     <p><b>المطور:</b> رضا مالكي</p>
     <p>كيهضر معاك بالصوت + كيقرا الصور + كيولد تصاور 🎨</p>
 </div>
@@ -71,10 +71,13 @@ def speech_to_text(audio_bytes):
         os.unlink(tmp_path)
         return transcription
 
+# Session state
 if "messages" not in st.session_state:
     st.session_state.messages = []
 if "uploader_key" not in st.session_state:
     st.session_state.uploader_key = 0
+if "current_input" not in st.session_state:
+    st.session_state.current_input = None
 
 for msg in st.session_state.messages:
     if msg["role"]!= "system":
@@ -107,7 +110,7 @@ def process_with_image(image, prompt):
         st.markdown(prompt)
     with st.chat_message("assistant"):
         with st.spinner("كنقرا الصورة..."):
-            system_prompt = {"role": "system", "content": "نتا RAM Bot v3.0. المطور ديالك رضا مالكي. كتهضر بالدارجة المغربية. جاوب قصير ومباشر."}
+            system_prompt = {"role": "system", "content": "نتا RAM Bot v3.1. المطور ديالك رضا مالكي. كتهضر بالدارجة المغربية. جاوب قصير ومباشر."}
             user_content = [{"type": "text", "text": prompt}, {"type": "image_url", "image_url": {"url": image_url}}]
             messages = [system_prompt] + get_text_messages() + [{"role": "user", "content": user_content}]
             chat_completion = client.chat.completions.create(messages=messages, model="meta-llama/llama-4-scout-17b-16e-instruct", temperature=0.7, max_tokens=1024)
@@ -123,7 +126,7 @@ def process_text_only(prompt):
         st.markdown(prompt)
     with st.chat_message("assistant"):
         with st.spinner("كنجاوب..."):
-            system_prompt = {"role": "system", "content": "نتا RAM Bot v3.0. المطور ديالك رضا مالكي. كتهضر بالدارجة المغربية. جاوب قصير ومباشر."}
+            system_prompt = {"role": "system", "content": "نتا RAM Bot v3.1. المطور ديالك رضا مالكي. كتهضر بالدارجة المغربية. جاوب قصير ومباشر."}
             text_messages = get_text_messages()
             messages = [system_prompt] + text_messages + [{"role": "user", "content": prompt}]
             chat_completion = client.chat.completions.create(messages=messages, model="llama-3.3-70b-versatile", temperature=0.7, max_tokens=512)
@@ -134,40 +137,50 @@ def process_text_only(prompt):
             st.session_state.messages.append({"role": "user", "content": prompt})
             st.session_state.messages.append({"role": "assistant", "content": response, "play_audio": audio})
 
+# المدخل ديال الكتابة والصوت - مصلح
 col1, col2 = st.columns([4,1])
 with col1:
-    prompt_text_only = st.chat_input("كتب سؤالك... ولا قول 'ولد ليا صورة ديال...'")
+    text_input = st.chat_input("كتب سؤالك... ولا قول 'ولد ليا صورة ديال...'")
 with col2:
-    audio = mic_recorder(start_prompt="🎤 هضر", stop_prompt="⏹️ سكت", key="recorder")
+    audio = mic_recorder(start_prompt="🎤 هضر", stop_prompt="⏹️ سكت", key=f"recorder_{st.session_state.uploader_key}")
 
-if audio and audio["bytes"]:
+# الأولوية للكتابة
+if text_input:
+    st.session_state.current_input = text_input
+elif audio and audio["bytes"]:
     transcribed_text = speech_to_text(audio["bytes"])
-    if transcribed_text:
-        prompt_text_only = transcribed_text
+    if transcribed_text and transcribed_text.strip():
+        st.session_state.current_input = transcribed_text
 
-if uploaded_file is not None and prompt_text_only:
-    process_with_image(uploaded_file, prompt_text_only)
+# معالجة المدخل
+if uploaded_file is not None and st.session_state.current_input:
+    process_with_image(uploaded_file, st.session_state.current_input)
+    st.session_state.current_input = None
     st.session_state.uploader_key += 1
     st.rerun()
 
-elif prompt_text_only:
-    if any(word in prompt_text_only for word in ["ولد ليا", "صاوب ليا", "رسم ليا", "صورة ديال"]):
+elif st.session_state.current_input:
+    prompt = st.session_state.current_input
+    st.session_state.current_input = None
+
+    if any(word in prompt for word in ["ولد ليا", "صاوب ليا", "رسم ليا", "صورة ديال"]):
         with st.chat_message("user"):
-            st.markdown(prompt_text_only)
+            st.markdown(prompt)
         with st.chat_message("assistant"):
-            image_bytes = generate_image(prompt_text_only)
+            image_bytes = generate_image(prompt)
             if isinstance(image_bytes, bytes):
                 st.image(image_bytes)
-                st.session_state.messages.append({"role": "user", "content": prompt_text_only})
-                st.session_state.messages.append({"role": "assistant", "content": f"ها هي الصورة ديال: {prompt_text_only}"})
+                st.session_state.messages.append({"role": "user", "content": prompt})
+                st.session_state.messages.append({"role": "assistant", "content": f"ها هي الصورة ديال: {prompt}"})
             else:
                 st.error("ما قدرتش نولد الصورة دابا. جرب مرة أخرى")
     else:
-        process_text_only(prompt_text_only)
+        process_text_only(prompt)
 
 if st.button("🗑️ مسح المحادثة"):
     st.session_state.messages = []
     st.session_state.uploader_key = 0
+    st.session_state.current_input = None
     st.rerun()
 
 st.markdown("<div style='text-align: center; color: white; margin-top: 2rem;'>صنع بـ ❤️ بواسطة رضا مالكي</div>", unsafe_allow_html=True)
