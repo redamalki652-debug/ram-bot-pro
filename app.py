@@ -7,6 +7,8 @@ import urllib.parse
 import io
 import time
 import random
+from streamlit_mic_recorder import mic_recorder
+from gtts import gTTS
 
 st.set_page_config(page_title="RAM Bot v2.2 AI", page_icon="🤖", layout="centered")
 
@@ -25,12 +27,12 @@ st.markdown("""
 <div class="card">
     <h1>🤖 RAM Bot v2.2 AI</h1>
     <p><b>المطور:</b> رضا مالكي</p>
-    <p>كيولد أي فيديو بلا فلوس 🎬</p>
+    <p>صوت 🎤 + صور 📸 + فيديو 🎬 بلا فلوس</p>
 </div>
 """, unsafe_allow_html=True)
 
 def translate_to_english(text):
-    prompt = f"Translate this Moroccan Darija to English for AI video generation, only output English: {text}"
+    prompt = f"Translate this Moroccan Darija to English for AI, only output English: {text}"
     try:
         response = client.chat.completions.create(
             messages=[{"role": "user", "content": prompt}],
@@ -39,7 +41,7 @@ def translate_to_english(text):
         )
         return response.choices[0].message.content.strip()
     except:
-        return text.replace("ولد ليا", "").replace("صاوب ليا", "").replace("فيديو ديال", "").strip()
+        return text.replace("ولد ليا", "").replace("صاوب ليا", "").strip()
 
 def generate_image(prompt):
     with st.spinner("كنرسم ليك الصورة... 🎨"):
@@ -52,7 +54,6 @@ def generate_image(prompt):
         return f"Error {response.status_code}"
 
 def generate_video_anything(prompt):
-    """كيعاود المحاولة 3 مرات حتى يولد أي فيديو"""
     eng_prompt = translate_to_english(prompt)
     st.info(f"Prompt: {eng_prompt}")
 
@@ -68,17 +69,13 @@ def generate_video_anything(prompt):
             if response.status_code == 200 and len(response.content) > 50000:
                 return response.content, "Pollinations LTX"
             else:
-                st.warning(f"المحاولة {attempt+1} فشلت، كنعاود...")
                 time.sleep(2)
-
-        except Exception as e:
-            st.warning(f"المحاولة {attempt+1} خطأ، كنعاود...")
+        except:
             time.sleep(2)
 
-    return None, "السيرفر مضغوط بزاف. جرب بعد 5 دقايق ولا بدل البرومت"
+    return None, "السيرفر مضغوط. جرب بعد 5 دقايق"
 
 def speak(text):
-    from gtts import gTTS
     tts = gTTS(text=text, lang='ar')
     buf = io.BytesIO()
     tts.write_to_fp(buf)
@@ -87,55 +84,122 @@ def speak(text):
 # الذاكرة
 if "messages" not in st.session_state:
     st.session_state.messages = []
+if "uploader_key" not in st.session_state:
+    st.session_state.uploader_key = 0
 
 for msg in st.session_state.messages:
-    if msg["role"] == "user":
-        with st.chat_message("user"):
+    with st.chat_message(msg["role"]):
+        if "image" in msg and msg["image"]!= "ai":
+            st.image(msg["image"], width=300)
+        elif msg.get("image") == "ai":
+            st.image(msg["content"])
+        elif "video" in msg:
+            st.video(msg["video"])
+            st.caption(f"المصدر: {msg['source']}")
+        elif "audio" in msg:
+            st.audio(msg["audio"], format="audio/mp3")
+        else:
             st.markdown(msg["content"])
-    else:
-        with st.chat_message("assistant"):
-            if "video" in msg:
-                st.video(msg["video"])
-                st.caption(f"المصدر: {msg['source']}")
-            elif "image" in msg:
-                st.image(msg["content"])
-            else:
-                st.markdown(msg["content"])
 
-prompt_text_only = st.chat_input("كتب: ولد ليا فيديو ديال أي حاجة...")
+# الميكرو + رفع الصور رجعناهم
+col1, col2 = st.columns(2)
+with col1:
+    audio = mic_recorder(start_prompt="🎤 سجل", stop_prompt="⏹️ وقف", key="recorder")
+with col2:
+    uploaded_file = st.file_uploader("📸 صيفط صورة ديال تمرين", type=["png", "jpg", "jpeg"], key=f"uploader_{st.session_state.uploader_key}")
 
-if prompt_text_only:
+prompt_text = st.chat_input("كتب سؤالك... ولا 'ولد ليا فيديو/صورة ديال...'")
+
+# معالجة الصوت
+if audio and audio["bytes"]:
+    with st.spinner("كنسمعك..."):
+        audio_bytes = audio["bytes"]
+        transcription = client.audio.transcriptions.create(
+            file=("audio.wav", audio_bytes),
+            model="whisper-large-v3",
+            response_format="text",
+            language="ar"
+        )
+        st.success(f"سمعتك: {transcription}")
+        prompt_text = transcription
+
+# معالجة الصورة + قراية التمارين
+if uploaded_file is not None and prompt_text:
+    image_b64 = base64.b64encode(uploaded_file.getvalue()).decode()
+    image_url = f"data:image/jpeg;base64,{image_b64}"
+
     with st.chat_message("user"):
-        st.markdown(prompt_text_only)
+        st.image(uploaded_file, width=300)
+        st.markdown(prompt_text)
 
-    if any(word in prompt_text_only for word in ["صورة", "رسم"]):
+    with st.chat_message("assistant"):
+        with st.spinner("كنقرا الصورة وكنحل التمرين..."):
+            system_prompt = {"role": "system", "content": "نتا RAM Bot. المطور ديالك رضا مالكي. كتهضر بالدارجة. إلا عطاوك صورة ديال تمرين حلّو خطوة بخطوة."}
+            user_content = [{"type": "text", "text": prompt_text}, {"type": "image_url", "image_url": {"url": image_url}}]
+            chat_completion = client.chat.completions.create(
+                messages=[system_prompt, {"role": "user", "content": user_content}],
+                model="meta-llama/llama-4-scout-17b-16e-instruct",
+                max_tokens=800
+            )
+            response = chat_completion.choices[0].message.content
+            st.markdown(response)
+
+            audio_bytes = speak(response)
+            st.audio(audio_bytes, format="audio/mp3")
+
+            st.session_state.messages.append({"role": "user", "content": prompt_text, "image": uploaded_file})
+            st.session_state.messages.append({"role": "assistant", "content": response, "audio": audio_bytes})
+
+# معالجة النص فقط
+elif prompt_text:
+    with st.chat_message("user"):
+        st.markdown(prompt_text)
+
+    # توليد صورة
+    if any(word in prompt_text for word in ["صورة", "رسم"]):
         with st.chat_message("assistant"):
-            result = generate_image(prompt_text_only)
+            result = generate_image(prompt_text)
             if isinstance(result, bytes):
                 st.image(result)
-                st.session_state.messages.append({"role": "user", "content": prompt_text_only})
-                st.session_state.messages.append({"role": "assistant", "content": result, "image": result})
+                audio = speak("ها هي الصورة ديالك")
+                st.audio(audio, format="audio/mp3")
+                st.session_state.messages.append({"role": "user", "content": prompt_text})
+                st.session_state.messages.append({"role": "assistant", "content": result, "image": "ai"})
             else:
                 st.error(result)
 
-    elif any(word in prompt_text_only for word in ["فيديو"]):
+    # توليد فيديو
+    elif any(word in prompt_text for word in ["فيديو"]):
         with st.chat_message("assistant"):
-            result, source = generate_video_anything(prompt_text_only)
+            result, source = generate_video_anything(prompt_text)
             if isinstance(result, bytes):
                 st.video(result)
                 st.caption(f"المصدر: {source}")
-                st.success("ها هو الفيديو ديالك 🎬 كيف ما كان")
-                st.session_state.messages.append({"role": "user", "content": prompt_text_only})
+                audio = speak("ها هو الفيديو ديالك")
+                st.audio(audio, format="audio/mp3")
+                st.session_state.messages.append({"role": "user", "content": prompt_text})
                 st.session_state.messages.append({"role": "assistant", "content": "تم", "video": result, "source": source})
             else:
                 st.error(source)
-                st.info("💡 نصيحة: جرب برومت بسيط 'قط كيجري' ولا صبر 5 دقايق وعاود")
+
+    # دردشة عادية
     else:
         with st.chat_message("assistant"):
-            st.markdown("قول: ولد ليا فيديو ديال... ولا ولد ليا صورة ديال...")
+            chat_completion = client.chat.completions.create(
+                messages=[{"role": "system", "content": "نتا RAM Bot v2.2. المطور رضا مالكي. كتهضر بالدارجة المغربية باختصار."}, {"role": "user", "content": prompt_text}],
+                model="llama-3.3-70b-versatile",
+                max_tokens=300
+            )
+            response = chat_completion.choices[0].message.content
+            st.markdown(response)
+            audio_bytes = speak(response)
+            st.audio(audio_bytes, format="audio/mp3")
+            st.session_state.messages.append({"role": "user", "content": prompt_text})
+            st.session_state.messages.append({"role": "assistant", "content": response, "audio": audio_bytes})
 
 if st.button("🗑️ مسح المحادثة", type="primary"):
     st.session_state.messages = []
+    st.session_state.uploader_key += 1
     st.rerun()
 
 st.markdown("<div style='text-align: center; color: white; margin-top: 2rem;'>صنع بـ ❤️ بواسطة رضا مالكي</div>", unsafe_allow_html=True)
