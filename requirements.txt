@@ -6,3 +6,4 @@ gtts
 streamlit-mic-recorder
 pytesseract
 Pillow
+requests
