@@ -34,8 +34,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 def translate_to_english(text):
-    """نترجمو الطلب للإنجليزية باش Pollinations يفهم"""
-    prompt = f"Translate this Moroccan Darija to English for AI image generation, only output English: {text}"
+    prompt = f"Translate this Moroccan Darija to English for AI image/video generation, only output English: {text}"
     try:
         response = client.chat.completions.create(
             messages=[{"role": "user", "content": prompt}],
@@ -49,9 +48,8 @@ def translate_to_english(text):
 def generate_image(prompt):
     with st.spinner("كنرسم ليك الصورة... 🎨"):
         try:
-            # نترجمو للإنجليزية
             eng_prompt = translate_to_english(prompt)
-            st.info(f"Prompt: {eng_prompt}") # باش تشوف شنو كيصيفط
+            st.info(f"Prompt: {eng_prompt}")
 
             url = f"https://image.pollinations.ai/prompt/{eng_prompt}?width=1024&height=1024&model=flux&enhance=true&nologo=true"
             response = requests.get(url, timeout=45)
@@ -71,12 +69,22 @@ def generate_video(prompt):
 
             output = replicate.run(
                 "minimax/video-01",
-                input={
-                    "prompt": eng_prompt,
-                    "aspect_ratio": "16:9"
-                }
+                input={"prompt": eng_prompt, "aspect_ratio": "16:9"}
             )
-            return output
+
+            if output and len(output) > 0:
+                video_url = output[0]
+
+                # نحملو الفيديو باش Streamlit Cloud يقبلو
+                with st.spinner("كنحمل الفيديو..."):
+                    video_response = requests.get(video_url, timeout=60)
+                    if video_response.status_code == 200:
+                        return video_response.content
+                    else:
+                        return f"Error download: {video_response.status_code}"
+            else:
+                return "Error: Replicate مرجعش فيديو"
+
         except Exception as e:
             return f"Error: {str(e)}"
 
@@ -102,6 +110,8 @@ for msg in st.session_state.messages:
                 st.image(msg["image"], width=300)
             elif msg.get("image") == "ai_generated":
                 st.image(msg["content"], caption="صورة مولدة")
+            elif "video" in msg:
+                st.video(msg["video"])
             elif "audio" in msg:
                 st.audio(msg["audio"], format="audio/mp3")
             else:
@@ -157,7 +167,6 @@ if audio and audio["bytes"]:
         process_text_only(transcription)
 
 elif uploaded_file is not None and prompt_with_image:
-    # قراية الصورة
     image_b64 = encode_image(uploaded_file)
     image_url = f"data:image/jpeg;base64,{image_b64}"
     with st.chat_message("user"):
@@ -193,19 +202,19 @@ elif prompt_text_only:
             else:
                 st.error(f"خطأ فتوليد الصورة: {result}")
 
-    # فيديو
+    # فيديو - مصلح
     elif any(word in prompt_text_only for word in ["ولد ليا فيديو", "صاوب ليا فيديو", "فيديو ديال"]):
         with st.chat_message("user"):
             st.markdown(prompt_text_only)
         with st.chat_message("assistant"):
             result = generate_video(prompt_text_only)
-            if isinstance(result, list) and len(result) > 0:
-                st.video(result[0])
+            if isinstance(result, bytes):
+                st.video(result)
                 response = "ها هو الفيديو ديالك 🎬"
                 audio_bytes = speak(response)
                 st.audio(audio_bytes, format="audio/mp3")
                 st.session_state.messages.append({"role": "user", "content": prompt_text_only})
-                st.session_state.messages.append({"role": "assistant", "content": response, "audio": audio_bytes})
+                st.session_state.messages.append({"role": "assistant", "content": response, "audio": audio_bytes, "video": result})
             else:
                 st.error(f"خطأ فتوليد الفيديو: {result}")
     else:
