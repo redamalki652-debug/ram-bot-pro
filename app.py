@@ -8,16 +8,17 @@ import random
 from streamlit_mic_recorder import mic_recorder
 from gtts import gTTS
 import replicate
+import os
 
 st.set_page_config(page_title="RAM Bot v2.0 AI", page_icon="🤖", layout="centered")
 
+# قراءة التوكنز - سميتهم مصحين
 GROQ_KEY = st.secrets["GROQ_KEY"]
-REPLICATE_TOKEN = st.secrets["REPLICATE_API_TOKEN"]
-client = Groq(api_key=GROQ_KEY)
+REPLICATE_API_TOKEN = st.secrets["REPLICATE_API_TOKEN"]
 
 # تفعيل التوكن ديال Replicate
-import os
-os.environ["REPLICATE_API_TOKEN"] = REPLICATE_TOKEN
+os.environ["REPLICATE_API_TOKEN"] = REPLICATE_API_TOKEN
+client = Groq(api_key=GROQ_KEY)
 
 st.markdown("""
 <style>
@@ -31,7 +32,7 @@ st.markdown("""
 <div class="card">
     <h1>🤖 RAM Bot v2.0 AI</h1>
     <p><b>المطور:</b> رضا مالكي</p>
-    <p>فيديو AI بالتوكين ⚡ + صوت 🎤 + صور 📸 + حل تمارين</p>
+    <p>فيديو AI بالتوكن ⚡ + صوت 🎤 + صور 📸 + حل تمارين</p>
 </div>
 """, unsafe_allow_html=True)
 
@@ -74,7 +75,7 @@ def generate_video_replicate(prompt):
                     "duration": 5,
                     "aspect_ratio": "1:1",
                     "fps": 16,
-                    "negative_prompt": "blurry, low quality, distorted"
+                    "negative_prompt": "blurry, low quality, distorted, watermark"
                 }
             )
 
@@ -90,7 +91,7 @@ def generate_image(prompt):
     with st.spinner("كنرسم ليك الصورة... 🎨"):
         eng_prompt = translate_to_english(prompt)
         st.info(f"Prompt: {eng_prompt}")
-        url = f"https://image.pollinations.ai/prompt/{urllib.parse.quote(eng_prompt)}?width=1024&height=1024&model=flux&nologo=true"
+        url = f"https://image.pollinations.ai/prompt/{urllib.parse.quote(eng_prompt)}?width=1024&height=1024&model=flux&nologo=true&seed={random.randint(1,9999)}"
         response = requests.get(url, timeout=45)
         return response.content if response.status_code == 200 else f"Error {response.status_code}"
 
@@ -200,7 +201,7 @@ elif prompt_text_only:
                 st.session_state.messages.append({"role": "assistant", "content": "تم", "video": result, "source": source})
             else:
                 st.error(result)
-                st.warning("💡 شوف واش عندك كريدت فـ replicate.com")
+                st.warning("💡 شوف واش عندك كريدت فـ replicate.com/account/billing")
 
     else:
         with st.chat_message("assistant"):
