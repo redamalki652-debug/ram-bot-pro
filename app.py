@@ -4,15 +4,20 @@ import base64
 import requests
 import io
 import urllib.parse
-import time
 import random
 from streamlit_mic_recorder import mic_recorder
 from gtts import gTTS
+import replicate
 
 st.set_page_config(page_title="RAM Bot v2.0 AI", page_icon="🤖", layout="centered")
 
 GROQ_KEY = st.secrets["GROQ_KEY"]
+REPLICATE_TOKEN = st.secrets["REPLICATE_API_TOKEN"]
 client = Groq(api_key=GROQ_KEY)
+
+# تفعيل التوكن ديال Replicate
+import os
+os.environ["REPLICATE_API_TOKEN"] = REPLICATE_TOKEN
 
 st.markdown("""
 <style>
@@ -26,56 +31,60 @@ st.markdown("""
 <div class="card">
     <h1>🤖 RAM Bot v2.0 AI</h1>
     <p><b>المطور:</b> رضا مالكي</p>
-    <p>فيديو فابور 🎬 + صوت 🎤 + صور 📸 + حل تمارين</p>
+    <p>فيديو AI بالتوكين ⚡ + صوت 🎤 + صور 📸 + حل تمارين</p>
 </div>
 """, unsafe_allow_html=True)
 
 def translate_to_english(text):
-    """ترجمة مباشرة بالقاموس بلا Groq باش ما يخربقش البرومت"""
+    """ترجمة بالقاموس بلا Groq"""
     text = text.lower().replace("ولد ليا فيديو ديال", "").replace("ولد ليا صورة ديال", "").replace("ولد ليا", "").replace("فيديو ديال", "").replace("صورة ديال", "").strip()
 
     dict = {
-        "قط": "cat running, cute",
-        "كلب": "dog running, cute",
-        "بحر": "ocean waves, beautiful sea",
-        "مطر": "rain falling, storm",
-        "سيارة": "car driving fast",
-        "شمس": "sunset, beautiful sky",
-        "ولد": "boy, child",
-        "بنت": "girl, child",
-        "طير": "bird flying",
-        "ورد": "flowers, roses",
-        "غابة": "forest, trees",
-        "سماء": "sky, clouds"
+        "قط": "cat running, cute, detailed",
+        "كلب": "dog running, cute, detailed",
+        "بحر": "ocean waves, beautiful sea, sunset",
+        "مطر": "rain falling, storm, cinematic",
+        "سيارة": "car driving fast, motion blur",
+        "شمس": "sunset, beautiful sky, golden hour",
+        "ولد": "boy, child, playing",
+        "بنت": "girl, child, smiling",
+        "طير": "bird flying, wings",
+        "ورد": "flowers, roses, garden",
+        "غابة": "forest, trees, nature",
+        "سماء": "sky, clouds, blue sky"
     }
 
     for ar, en in dict.items():
         if ar in text:
-            return en + ", smooth motion, 4k"
+            return en + ", smooth motion, 4k, high quality"
 
-    return text + ", smooth motion, 4k" if text else "beautiful scene, smooth motion"
+    return text + ", smooth motion, 4k, high quality" if text else "beautiful scene, smooth motion, 4k"
 
-def generate_video_free(prompt):
-    """فيديو فابور - Pollinations LTX"""
+def generate_video_replicate(prompt):
+    """فيديو بالتوكن ديال Replicate - Wan 2.2"""
     eng_prompt = translate_to_english(prompt)
     st.info(f"Prompt: {eng_prompt}")
 
-    seed = random.randint(1, 999)
-    url = f"https://image.pollinations.ai/video/{urllib.parse.quote(eng_prompt)}?model=ltx-video&nologo=true&width=512&height=512&seed={seed}"
-
     try:
-        with st.spinner("كنولد ليك الفيديو... صبر 40 ثانية"):
-            response = requests.get(url, timeout=45)
+        with st.spinner("كنولد ليك الفيديو بالتوكن ديالك... 20 ثانية فقط ⚡"):
+            output = replicate.run(
+                "wan-video/wan-2.2-a14b",
+                input={
+                    "prompt": eng_prompt,
+                    "duration": 5,
+                    "aspect_ratio": "1:1",
+                    "fps": 16,
+                    "negative_prompt": "blurry, low quality, distorted"
+                }
+            )
 
-        if response.status_code == 200 and len(response.content) > 50000:
-            return response.content, "Pollinations LTX فابور"
-        else:
-            return None, f"السيرفر مضغوط دابا كود {response.status_code}. عاود من بعد 5 دقايق ولا بسط الكلمة"
+        # Replicate كيعطي ليان
+        video_url = output[0] if isinstance(output, list) else output
+        video_data = requests.get(video_url).content
+        return video_data, "Replicate Wan 2.2 بالتوكن ديالك"
 
-    except requests.exceptions.Timeout:
-        return None, "طول بزاف، عاود المحاولة"
     except Exception as e:
-        return None, f"خطأ: {str(e)}"
+        return None, f"خطأ: {str(e)}. شوف واش عندك كريدت فـ replicate.com"
 
 def generate_image(prompt):
     with st.spinner("كنرسم ليك الصورة... 🎨"):
@@ -181,17 +190,17 @@ elif prompt_text_only:
 
     elif any(word in prompt_text_only for word in ["فيديو"]):
         with st.chat_message("assistant"):
-            result, source = generate_video_free(prompt_text_only)
+            result, source = generate_video_replicate(prompt_text_only)
             if isinstance(result, bytes):
                 st.video(result)
                 st.caption(f"المصدر: {source}")
-                audio = speak("ها هو الفيديو ديالك فابور")
+                audio = speak("ها هو الفيديو ديالك بالتوكن")
                 st.audio(audio, format="audio/mp3")
                 st.session_state.messages.append({"role": "user", "content": prompt_text_only})
                 st.session_state.messages.append({"role": "assistant", "content": "تم", "video": result, "source": source})
             else:
                 st.error(result)
-                st.warning("💡 الحل: عاود من بعد 5 دقايق ولا كتب غير كلمة وحدة: قط بحر مطر")
+                st.warning("💡 شوف واش عندك كريدت فـ replicate.com")
 
     else:
         with st.chat_message("assistant"):
