@@ -3,14 +3,13 @@ from groq import Groq
 import base64
 import requests
 from gtts import gTTS
-from streamlit_mic_recorder import mic_recorder
+from streamlit_mic-recorder import mic_recorder
 import io
 import tempfile
 import os
 
-st.set_page_config(page_title="RAM Bot v3.2 Voice AI", page_icon="🎤", layout="centered")
+st.set_page_config(page_title="RAM Bot v4.0 Video AI", page_icon="🎬", layout="centered")
 
-# مسح كامل ملي كيبدا التطبيق
 if "initialized" not in st.session_state:
     st.session_state.initialized = True
 
@@ -27,9 +26,9 @@ st.markdown("""
 
 st.markdown("""
 <div class="card">
-    <h1>🎤 RAM Bot v3.2 Voice AI</h1>
+    <h1>🎬 RAM Bot v4.0 Video AI</h1>
     <p><b>المطور:</b> رضا مالكي</p>
-    <p>كيهضر معاك بالصوت + كيقرا الصور + كيولد تصاور 🎨</p>
+    <p>كيهضر + كيقرا الصور + كيولد تصاور + كيولد فيديوهات 🎨</p>
 </div>
 """, unsafe_allow_html=True)
 
@@ -37,10 +36,9 @@ def encode_image(image):
     return base64.b64encode(image.getvalue()).decode('utf-8')
 
 def generate_image(prompt):
-    """توليد صورة مجاني - Pollinations.ai"""
     with st.spinner("كنرسم ليك الصورة... 🎨"):
         try:
-            clean_prompt = prompt.replace("ولد ليا", "").replace("صاوب ليا", "").replace("رسم ليا", "").replace("صورة ديال", "").strip()
+            clean_prompt = prompt.replace("ولد ليا", "").replace("صاوب ليا", "").replace("رسم ليا", "").replace("صورة ديال", "").replace("فيديو ديال", "").strip()
             url = f"https://image.pollinations.ai/prompt/{clean_prompt}?width=1024&height=1024&model=flux&enhance=true"
             response = requests.get(url, timeout=30)
             if response.status_code == 200:
@@ -50,8 +48,23 @@ def generate_image(prompt):
         except Exception as e:
             return f"Error: {str(e)}"
 
+def generate_video(prompt):
+    """توليد فيديو مجاني - Pollinations Video"""
+    with st.spinner("كنصاوب ليك الفيديو... هادي كتاخد 30 ثانية 🎬"):
+        try:
+            clean_prompt = prompt.replace("ولد ليا", "").replace("صاوب ليا", "").replace("رسم ليا", "").replace("فيديو ديال", "").strip()
+            url = f"https://image.pollinations.ai/prompt/{clean_prompt}?width=512&height=512&model=flux&nologo=true"
+            # Pollinations video endpoint
+            video_url = f"https://pollinations.ai/video/{clean_prompt}"
+            response = requests.get(video_url, timeout=60)
+            if response.status_code == 200 and b'video' in response.headers.get('content-type', '').encode():
+                return response.content
+            else:
+                return "مازال الفيديو مجاني ديال Pollinations محدود. جرب صورة عوضها دابا."
+        except Exception as e:
+            return f"Error: {str(e)}"
+
 def text_to_speech(text):
-    """تحويل النص لصوت بالعربية"""
     with st.spinner("كنحضر الصوت... 🔊"):
         tts = gTTS(text=text, lang='ar', slow=False)
         audio_bytes = io.BytesIO()
@@ -59,12 +72,10 @@ def text_to_speech(text):
         return audio_bytes.getvalue()
 
 def speech_to_text(audio_bytes):
-    """تحويل الصوت لنص ب Whisper ديال Groq"""
     with st.spinner("كنفهم الهضرة ديالك... 🎤"):
         with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmp:
             tmp.write(audio_bytes)
             tmp_path = tmp.name
-
         with open(tmp_path, "rb") as file:
             transcription = client.audio.transcriptions.create(
                 file=(tmp_path, file.read()),
@@ -75,7 +86,6 @@ def speech_to_text(audio_bytes):
         os.unlink(tmp_path)
         return transcription
 
-# Session state
 if "messages" not in st.session_state:
     st.session_state.messages = []
 if "uploader_key" not in st.session_state:
@@ -90,6 +100,8 @@ for msg in st.session_state.messages:
                 st.image(msg["image"], width=300)
             elif msg.get("image") == "ai_generated":
                 st.image(msg["content"], caption="صورة مولدة بالذكاء الاصطناعي")
+            elif msg.get("video") == "ai_generated":
+                st.video(msg["content"])
             else:
                 st.markdown(msg["content"])
                 if msg.get("play_audio"):
@@ -114,7 +126,7 @@ def process_with_image(image, prompt):
         st.markdown(prompt)
     with st.chat_message("assistant"):
         with st.spinner("كنقرا الصورة..."):
-            system_prompt = {"role": "system", "content": "نتا RAM Bot v3.2. المطور ديالك رضا مالكي. كتهضر بالدارجة المغربية. جاوب قصير ومباشر."}
+            system_prompt = {"role": "system", "content": "نتا RAM Bot v4.0. المطور ديالك رضا مالكي. كتهضر بالدارجة المغربية. جاوب قصير ومباشر."}
             user_content = [{"type": "text", "text": prompt}, {"type": "image_url", "image_url": {"url": image_url}}]
             messages = [system_prompt] + get_text_messages() + [{"role": "user", "content": user_content}]
             chat_completion = client.chat.completions.create(messages=messages, model="meta-llama/llama-4-scout-17b-16e-instruct", temperature=0.7, max_tokens=1024)
@@ -130,7 +142,7 @@ def process_text_only(prompt):
         st.markdown(prompt)
     with st.chat_message("assistant"):
         with st.spinner("كنجاوب..."):
-            system_prompt = {"role": "system", "content": "نتا RAM Bot v3.2. المطور ديالك رضا مالكي. كتهضر بالدارجة المغربية. جاوب قصير ومباشر."}
+            system_prompt = {"role": "system", "content": "نتا RAM Bot v4.0. المطور ديالك رضا مالكي. كتهضر بالدارجة المغربية. جاوب قصير ومباشر."}
             text_messages = get_text_messages()
             messages = [system_prompt] + text_messages + [{"role": "user", "content": prompt}]
             chat_completion = client.chat.completions.create(messages=messages, model="llama-3.3-70b-versatile", temperature=0.7, max_tokens=512)
@@ -141,14 +153,12 @@ def process_text_only(prompt):
             st.session_state.messages.append({"role": "user", "content": prompt})
             st.session_state.messages.append({"role": "assistant", "content": response, "play_audio": audio})
 
-# المدخل ديال الكتابة والصوت
 col1, col2 = st.columns([4,1])
 with col1:
-    text_input = st.chat_input("كتب سؤالك... ولا قول 'ولد ليا صورة ديال...'")
+    text_input = st.chat_input("كتب سؤالك... ولا قول 'ولد ليا صورة/فيديو ديال...'")
 with col2:
     audio = mic_recorder(start_prompt="🎤 هضر", stop_prompt="⏹️ سكت", key=f"recorder_{st.session_state.uploader_key}")
 
-# الأولوية للكتابة
 if text_input:
     st.session_state.current_input = text_input
 elif audio and audio["bytes"]:
@@ -156,7 +166,6 @@ elif audio and audio["bytes"]:
     if transcribed_text and transcribed_text.strip():
         st.session_state.current_input = transcribed_text
 
-# معالجة المدخل
 if uploaded_file is not None and st.session_state.current_input:
     process_with_image(uploaded_file, st.session_state.current_input)
     st.session_state.current_input = None
@@ -167,7 +176,8 @@ elif st.session_state.current_input:
     prompt = st.session_state.current_input
     st.session_state.current_input = None
 
-    if any(word in prompt for word in ["ولد ليا", "صاوب ليا", "رسم ليا", "صورة ديال"]):
+    # كشف الصور
+    if any(word in prompt for word in ["ولد ليا", "صاوب ليا", "رسم ليا", "صورة ديال"]) and "فيديو" not in prompt:
         with st.chat_message("user"):
             st.markdown(prompt)
         with st.chat_message("assistant"):
@@ -175,13 +185,26 @@ elif st.session_state.current_input:
             if isinstance(image_bytes, bytes):
                 st.image(image_bytes)
                 st.session_state.messages.append({"role": "user", "content": prompt})
-                st.session_state.messages.append({"role": "assistant", "content": f"ها هي الصورة ديال: {prompt}"})
+                st.session_state.messages.append({"role": "assistant", "content": f"ها هي الصورة ديال: {prompt}", "image": "ai_generated"})
             else:
-                st.error("ما قدرتش نولد الصورة دابا. جرب مرة أخرى")
+                st.error("ما قدرتش نولد الصورة دابا")
+
+    # كشف الفيديوهات الجديد 🔥
+    elif any(word in prompt for word in ["فيديو ديال", "ولد ليا فيديو", "صاوب ليا فيديو"]):
+        with st.chat_message("user"):
+            st.markdown(prompt)
+        with st.chat_message("assistant"):
+            video_bytes = generate_video(prompt)
+            if isinstance(video_bytes, bytes):
+                st.video(video_bytes)
+                st.session_state.messages.append({"role": "user", "content": prompt})
+                st.session_state.messages.append({"role": "assistant", "content": video_bytes, "video": "ai_generated"})
+            else:
+                st.warning(video_bytes)
+
     else:
         process_text_only(prompt)
 
-# زر المسح النهائي - كيمسح كلشي
 if st.button("🗑️ مسح المحادثة", use_container_width=True):
     for key in list(st.session_state.keys()):
         del st.session_state[key]
