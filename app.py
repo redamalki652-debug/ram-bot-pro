@@ -2,24 +2,15 @@ import streamlit as st
 from groq import Groq
 import base64
 
-st.set_page_config(
-    page_title="RAM Bot v1.0 Ultra",
-    page_icon="🤖",
-    layout="centered"
-)
+st.set_page_config(page_title="RAM Bot v1.0 Ultra", page_icon="🤖", layout="centered")
 
-# API Key من Secrets
 GROQ_KEY = st.secrets["GROQ_KEY"]
 client = Groq(api_key=GROQ_KEY)
 
-# ستايل زوين
 st.markdown("""
 <style>
 .stApp {background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);}
-.card {
-    background: white; padding: 2rem; border-radius: 20px;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.3); margin-bottom: 2rem; text-align: center;
-}
+.card {background: white; padding: 2rem; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); margin-bottom: 2rem; text-align: center;}
 .card h1 {color: #667eea; margin: 0; font-size: 2.5rem;}
 .card p {color: #555; margin: 0.5rem 0;}
 </style>
@@ -36,11 +27,9 @@ st.markdown("""
 def encode_image(image):
     return base64.b64encode(image.getvalue()).decode('utf-8')
 
-# تهيئة المحادثة
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-# عرض المحادثة القديمة
 for msg in st.session_state.messages:
     if msg["role"]!= "system":
         with st.chat_message(msg["role"]):
@@ -48,11 +37,9 @@ for msg in st.session_state.messages:
                 st.image(msg["image"], width=300)
             st.markdown(msg["content"])
 
-# رفع الصورة
 uploaded_file = st.file_uploader("📸 صيفط صورة ولا سول عادي", type=["png", "jpg", "jpeg"], key="uploader")
 
 def process_with_image(image, prompt):
-    """معالجة الصورة + النص"""
     image_b64 = encode_image(image)
     image_url = f"data:image/jpeg;base64,{image_b64}"
 
@@ -62,10 +49,7 @@ def process_with_image(image, prompt):
 
     with st.chat_message("assistant"):
         with st.spinner("كنقرا الصورة..."):
-            system_prompt = {
-                "role": "system",
-                "content": "نتا RAM Bot v1.0 Ultra. المطور ديالك رضا مالكي. كتهضر بالدارجة المغربية. إلا عطاوك صورة: وصفها مزيان وجاوب على أي سؤال عليها. إلا فيها تمارين رياضيات/فيزياء حلها خطوة بخطوة وبطريقة بسيطة."
-            }
+            system_prompt = {"role": "system", "content": "نتا RAM Bot v1.0 Ultra. المطور ديالك رضا مالكي. كتهضر بالدارجة المغربية. إلا عطاوك صورة: وصفها مزيان وجاوب على أي سؤال عليها. إلا فيها تمارين رياضيات/فيزياء حلها خطوة بخطوة وبطريقة بسيطة."}
 
             user_content = [
                 {"type": "text", "text": prompt},
@@ -82,22 +66,16 @@ def process_with_image(image, prompt):
             )
             response = chat_completion.choices[0].message.content
             st.markdown(response)
-
-            # حفظ المحادثة
             st.session_state.messages.append({"role": "user", "content": prompt, "image": image})
             st.session_state.messages.append({"role": "assistant", "content": response})
 
 def process_text_only(prompt):
-    """معالجة النص فقط - بلا صورة"""
     with st.chat_message("user"):
         st.markdown(prompt)
 
     with st.chat_message("assistant"):
         with st.spinner("كنجاوب..."):
-            system_prompt = {
-                "role": "system",
-                "content": "نتا RAM Bot v1.0 Ultra. المطور ديالك رضا مالكي. كتهضر بالدارجة المغربية. جاوب بمعلومات دقيقة ومفيدة."
-            }
+            system_prompt = {"role": "system", "content": "نتا RAM Bot v1.0 Ultra. المطور ديالك رضا مالكي. كتهضر بالدارجة المغربية. جاوب بمعلومات دقيقة ومفيدة."}
 
             messages = [system_prompt] + st.session_state.messages + [{"role": "user", "content": prompt}]
 
@@ -109,25 +87,20 @@ def process_text_only(prompt):
             )
             response = chat_completion.choices[0].message.content
             st.markdown(response)
-
-            # حفظ المحادثة
             st.session_state.messages.append({"role": "user", "content": prompt})
             st.session_state.messages.append({"role": "assistant", "content": response})
 
-# المنطق المهم - فصل بين الصورة والنص
 prompt_with_image = st.chat_input("كتب سؤالك على الصورة هنا...")
 prompt_text_only = st.chat_input("كتب سؤالك هنا...", key="text_only")
 
 if uploaded_file is not None and prompt_with_image:
     process_with_image(uploaded_file, prompt_with_image)
-    # مسح الصورة من الـ uploader باش ما تبقاش فالذاكرة
     st.session_state.uploader = None
     st.rerun()
 
 elif prompt_text_only:
     process_text_only(prompt_text_only)
 
-# زر مسح المحادثة
 if st.button("🗑️ مسح المحادثة"):
     st.session_state.messages = []
     st.session_state.uploader = None
