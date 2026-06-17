@@ -29,6 +29,8 @@ def encode_image(image):
 
 if "messages" not in st.session_state:
     st.session_state.messages = []
+if "uploader_key" not in st.session_state:
+    st.session_state.uploader_key = 0
 
 for msg in st.session_state.messages:
     if msg["role"]!= "system":
@@ -37,7 +39,8 @@ for msg in st.session_state.messages:
                 st.image(msg["image"], width=300)
             st.markdown(msg["content"])
 
-uploaded_file = st.file_uploader("📸 صيفط صورة ولا سول عادي", type=["png", "jpg", "jpeg"], key="uploader")
+# الحل: كنبدلو key كل مرة باش نفرغو الـ uploader
+uploaded_file = st.file_uploader("📸 صيفط صورة ولا سول عادي", type=["png", "jpg", "jpeg"], key=f"uploader_{st.session_state.uploader_key}")
 
 def process_with_image(image, prompt):
     image_b64 = encode_image(image)
@@ -95,7 +98,8 @@ prompt_text_only = st.chat_input("كتب سؤالك هنا...", key="text_only")
 
 if uploaded_file is not None and prompt_with_image:
     process_with_image(uploaded_file, prompt_with_image)
-    st.session_state.uploader = None
+    # الحل: نزيدو 1 للـ key باش نفرغو الـ uploader بلا Error
+    st.session_state.uploader_key += 1
     st.rerun()
 
 elif prompt_text_only:
@@ -103,7 +107,7 @@ elif prompt_text_only:
 
 if st.button("🗑️ مسح المحادثة"):
     st.session_state.messages = []
-    st.session_state.uploader = None
+    st.session_state.uploader_key = 0
     st.rerun()
 
 st.markdown("<div style='text-align: center; color: white; margin-top: 2rem;'>صنع بـ ❤️ بواسطة رضا مالكي</div>", unsafe_allow_html=True)
