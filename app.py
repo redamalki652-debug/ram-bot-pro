@@ -72,11 +72,8 @@ def generate_video(prompt):
                 input={"prompt": eng_prompt, "aspect_ratio": "16:9"}
             )
 
-            # Replicate دابا كيرجع FileOutput مباشرة ماشي list
             if output:
                 video_url = str(output)
-                st.info(f"URL: {video_url[:50]}...") # باش تشوف واش جاب لينك
-
                 with st.spinner("كنحمل الفيديو..."):
                     video_response = requests.get(video_url, timeout=60)
                     if video_response.status_code == 200:
@@ -98,7 +95,7 @@ def speak(text):
 def encode_image(image):
     return base64.b64encode(image.getvalue()).decode('utf-8')
 
-# الذاكرة
+# الذاكرة - مصلح باش ما يرجعش المحادثة القديمة
 if "messages" not in st.session_state:
     st.session_state.messages = []
 if "uploader_key" not in st.session_state:
@@ -151,8 +148,9 @@ def process_text_only(prompt):
             st.session_state.messages.append({"role": "user", "content": prompt})
             st.session_state.messages.append({"role": "assistant", "content": response, "audio": audio_bytes})
 
-prompt_with_image = st.chat_input("كتب سؤالك على الصورة هنا...")
-prompt_text_only = st.chat_input("كتب سؤالك هنا... ولا قول 'ولد ليا صورة/فيديو ديال...'", key="text_only")
+# استعملنا key مختلف باش chat_input ما يحفظش القيمة القديمة
+prompt_with_image = st.chat_input("كتب سؤالك على الصورة هنا...", key="chat_input_img")
+prompt_text_only = st.chat_input("كتب سؤالك هنا... ولا قول 'ولد ليا صورة/فيديو ديال...'", key="chat_input_text")
 
 # معالجة الصوت
 if audio and audio["bytes"]:
@@ -203,7 +201,7 @@ elif prompt_text_only:
             else:
                 st.error(f"خطأ فتوليد الصورة: {result}")
 
-    # فيديو - مصلح نهائي
+    # فيديو
     elif any(word in prompt_text_only for word in ["ولد ليا فيديو", "صاوب ليا فيديو", "فيديو ديال"]):
         with st.chat_message("user"):
             st.markdown(prompt_text_only)
@@ -221,12 +219,16 @@ elif prompt_text_only:
     else:
         process_text_only(prompt_text_only)
 
-# مسح المحادثة
+# مسح المحادثة - مصلح نهائي 100%
 if st.button("🗑️ مسح المحادثة", use_container_width=True, type="primary"):
+    # نمسحو كلشي بما فيهم chat_input
     for key in list(st.session_state.keys()):
         del st.session_state[key]
+
+    # نعاودو نبداو من الصفر
     st.session_state.messages = []
     st.session_state.uploader_key = 0
+
     st.success("تم مسح المحادثة ✅")
     st.rerun()
 
