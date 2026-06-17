@@ -3,12 +3,12 @@ from groq import Groq
 import base64
 import requests
 from gtts import gTTS
-from streamlit_mic-recorder import mic_recorder
+from streamlit_mic_recorder import mic_recorder # ✅ مصح: _ ماشي -
 import io
 import tempfile
 import os
 
-st.set_page_config(page_title="RAM Bot v4.0 Video AI", page_icon="🎬", layout="centered")
+st.set_page_config(page_title="RAM Bot v4.1 Video AI", page_icon="🎬", layout="centered")
 
 if "initialized" not in st.session_state:
     st.session_state.initialized = True
@@ -26,7 +26,7 @@ st.markdown("""
 
 st.markdown("""
 <div class="card">
-    <h1>🎬 RAM Bot v4.0 Video AI</h1>
+    <h1>🎬 RAM Bot v4.1 Video AI</h1>
     <p><b>المطور:</b> رضا مالكي</p>
     <p>كيهضر + كيقرا الصور + كيولد تصاور + كيولد فيديوهات 🎨</p>
 </div>
@@ -49,12 +49,9 @@ def generate_image(prompt):
             return f"Error: {str(e)}"
 
 def generate_video(prompt):
-    """توليد فيديو مجاني - Pollinations Video"""
     with st.spinner("كنصاوب ليك الفيديو... هادي كتاخد 30 ثانية 🎬"):
         try:
             clean_prompt = prompt.replace("ولد ليا", "").replace("صاوب ليا", "").replace("رسم ليا", "").replace("فيديو ديال", "").strip()
-            url = f"https://image.pollinations.ai/prompt/{clean_prompt}?width=512&height=512&model=flux&nologo=true"
-            # Pollinations video endpoint
             video_url = f"https://pollinations.ai/video/{clean_prompt}"
             response = requests.get(video_url, timeout=60)
             if response.status_code == 200 and b'video' in response.headers.get('content-type', '').encode():
@@ -126,7 +123,7 @@ def process_with_image(image, prompt):
         st.markdown(prompt)
     with st.chat_message("assistant"):
         with st.spinner("كنقرا الصورة..."):
-            system_prompt = {"role": "system", "content": "نتا RAM Bot v4.0. المطور ديالك رضا مالكي. كتهضر بالدارجة المغربية. جاوب قصير ومباشر."}
+            system_prompt = {"role": "system", "content": "نتا RAM Bot v4.1. المطور ديالك رضا مالكي. كتهضر بالدارجة المغربية. جاوب قصير ومباشر."}
             user_content = [{"type": "text", "text": prompt}, {"type": "image_url", "image_url": {"url": image_url}}]
             messages = [system_prompt] + get_text_messages() + [{"role": "user", "content": user_content}]
             chat_completion = client.chat.completions.create(messages=messages, model="meta-llama/llama-4-scout-17b-16e-instruct", temperature=0.7, max_tokens=1024)
@@ -142,7 +139,7 @@ def process_text_only(prompt):
         st.markdown(prompt)
     with st.chat_message("assistant"):
         with st.spinner("كنجاوب..."):
-            system_prompt = {"role": "system", "content": "نتا RAM Bot v4.0. المطور ديالك رضا مالكي. كتهضر بالدارجة المغربية. جاوب قصير ومباشر."}
+            system_prompt = {"role": "system", "content": "نتا RAM Bot v4.1. المطور ديالك رضا مالكي. كتهضر بالدارجة المغربية. جاوب قصير ومباشر."}
             text_messages = get_text_messages()
             messages = [system_prompt] + text_messages + [{"role": "user", "content": prompt}]
             chat_completion = client.chat.completions.create(messages=messages, model="llama-3.3-70b-versatile", temperature=0.7, max_tokens=512)
@@ -176,7 +173,6 @@ elif st.session_state.current_input:
     prompt = st.session_state.current_input
     st.session_state.current_input = None
 
-    # كشف الصور
     if any(word in prompt for word in ["ولد ليا", "صاوب ليا", "رسم ليا", "صورة ديال"]) and "فيديو" not in prompt:
         with st.chat_message("user"):
             st.markdown(prompt)
@@ -189,7 +185,6 @@ elif st.session_state.current_input:
             else:
                 st.error("ما قدرتش نولد الصورة دابا")
 
-    # كشف الفيديوهات الجديد 🔥
     elif any(word in prompt for word in ["فيديو ديال", "ولد ليا فيديو", "صاوب ليا فيديو"]):
         with st.chat_message("user"):
             st.markdown(prompt)
