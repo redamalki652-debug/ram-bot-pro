@@ -72,10 +72,11 @@ def generate_video(prompt):
                 input={"prompt": eng_prompt, "aspect_ratio": "16:9"}
             )
 
-            if output and len(output) > 0:
-                video_url = output[0]
+            # Replicate دابا كيرجع FileOutput مباشرة ماشي list
+            if output:
+                video_url = str(output)
+                st.info(f"URL: {video_url[:50]}...") # باش تشوف واش جاب لينك
 
-                # نحملو الفيديو باش Streamlit Cloud يقبلو
                 with st.spinner("كنحمل الفيديو..."):
                     video_response = requests.get(video_url, timeout=60)
                     if video_response.status_code == 200:
@@ -202,7 +203,7 @@ elif prompt_text_only:
             else:
                 st.error(f"خطأ فتوليد الصورة: {result}")
 
-    # فيديو - مصلح
+    # فيديو - مصلح نهائي
     elif any(word in prompt_text_only for word in ["ولد ليا فيديو", "صاوب ليا فيديو", "فيديو ديال"]):
         with st.chat_message("user"):
             st.markdown(prompt_text_only)
