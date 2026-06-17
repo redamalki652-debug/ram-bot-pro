@@ -7,7 +7,6 @@ import replicate
 from gtts import gTTS
 from streamlit_mic_recorder import mic_recorder
 import io
-from PIL import Image
 
 st.set_page_config(page_title="RAM Bot v2.2 AI", page_icon="🤖", layout="centered")
 
@@ -17,7 +16,7 @@ REPLICATE_TOKEN = st.secrets["REPLICATE_TOKEN"]
 client = Groq(api_key=GROQ_KEY)
 os.environ["REPLICATE_API_TOKEN"] = REPLICATE_TOKEN
 
-# الواجهة ديالك
+# الواجهة
 st.markdown("""
 <style>
 .stApp {background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);}
@@ -34,27 +33,49 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-def encode_image(image):
-    return base64.b64encode(image.getvalue()).decode('utf-8')
+def translate_to_english(text):
+    """نترجمو الطلب للإنجليزية باش Pollinations يفهم"""
+    prompt = f"Translate this Moroccan Darija to English for AI image generation, only output English: {text}"
+    try:
+        response = client.chat.completions.create(
+            messages=[{"role": "user", "content": prompt}],
+            model="llama-3.1-8b-instant",
+            max_tokens=100
+        )
+        return response.choices[0].message.content.strip()
+    except:
+        return text.replace("ولد ليا", "").replace("صاوب ليا", "").replace("رسم ليا", "").replace("صورة ديال", "").replace("فيديو ديال", "").strip()
 
 def generate_image(prompt):
     with st.spinner("كنرسم ليك الصورة... 🎨"):
         try:
-            clean_prompt = prompt.replace("ولد ليا", "").replace("صاوب ليا", "").replace("رسم ليا", "").replace("صورة ديال", "").strip()
-            url = f"https://image.pollinations.ai/prompt/{clean_prompt}?width=1024&height=1024&model=flux&enhance=true"
-            response = requests.get(url, timeout=30)
+            # نترجمو للإنجليزية
+            eng_prompt = translate_to_english(prompt)
+            st.info(f"Prompt: {eng_prompt}") # باش تشوف شنو كيصيفط
+
+            url = f"https://image.pollinations.ai/prompt/{eng_prompt}?width=1024&height=1024&model=flux&enhance=true&nologo=true"
+            response = requests.get(url, timeout=45)
+
             if response.status_code == 200:
                 return response.content
             else:
-                return f"Error: {response.status_code}"
+                return f"Error {response.status_code}: {response.text[:100]}"
         except Exception as e:
             return f"Error: {str(e)}"
 
 def generate_video(prompt):
-    with st.spinner("كنولد الفيديو... صبر 30 ثانية 🎬"):
+    with st.spinner("كنولد الفيديو... صبر 40 ثانية 🎬"):
         try:
-            clean_prompt = prompt.replace("ولد ليا فيديو", "").replace("فيديو ديال", "").strip()
-            output = replicate.run("minimax/video-01", input={"prompt": clean_prompt})
+            eng_prompt = translate_to_english(prompt)
+            st.info(f"Prompt: {eng_prompt}")
+
+            output = replicate.run(
+                "minimax/video-01",
+                input={
+                    "prompt": eng_prompt,
+                    "aspect_ratio": "16:9"
+                }
+            )
             return output
         except Exception as e:
             return f"Error: {str(e)}"
@@ -65,13 +86,15 @@ def speak(text):
     tts.write_to_fp(buf)
     return buf.getvalue()
 
-# تهيئة الذاكرة
+def encode_image(image):
+    return base64.b64encode(image.getvalue()).decode('utf-8')
+
+# الذاكرة
 if "messages" not in st.session_state:
     st.session_state.messages = []
 if "uploader_key" not in st.session_state:
     st.session_state.uploader_key = 0
 
-# عرض المحادثة
 for msg in st.session_state.messages:
     if msg["role"]!= "system":
         with st.chat_message(msg["role"]):
@@ -84,7 +107,6 @@ for msg in st.session_state.messages:
             else:
                 st.markdown(msg["content"])
 
-# الميكروفون + رفع الصورة
 col1, col2 = st.columns(2)
 with col1:
     audio = mic_recorder(start_prompt="🎤 سجل", stop_prompt="⏹️ وقف", key="recorder")
@@ -99,27 +121,6 @@ def get_text_messages():
         elif msg["role"] == "assistant":
             text_msgs.append({"role": "assistant", "content": msg["content"]})
     return text_msgs
-
-def process_with_image(image, prompt):
-    image_b64 = encode_image(image)
-    image_url = f"data:image/jpeg;base64,{image_b64}"
-    with st.chat_message("user"):
-        st.image(image, width=300)
-        st.markdown(prompt)
-    with st.chat_message("assistant"):
-        with st.spinner("كنقرا الصورة..."):
-            system_prompt = {"role": "system", "content": "نتا RAM Bot v2.2. المطور ديالك رضا مالكي. كتهضر بالدارجة المغربية باختصار. إلا عطاوك صورة ديال بطاقة خرج المعلومات والتمارين."}
-            user_content = [{"type": "text", "text": prompt}, {"type": "image_url", "image_url": {"url": image_url}}]
-            messages = [system_prompt] + get_text_messages() + [{"role": "user", "content": user_content}]
-            chat_completion = client.chat.completions.create(messages=messages, model="meta-llama/llama-4-scout-17b-16e-instruct", temperature=0.7, max_tokens=500)
-            response = chat_completion.choices[0].message.content
-            st.markdown(response)
-
-            audio_bytes = speak(response)
-            st.audio(audio_bytes, format="audio/mp3")
-
-            st.session_state.messages.append({"role": "user", "content": prompt, "image": image})
-            st.session_state.messages.append({"role": "assistant", "content": response, "audio": audio_bytes})
 
 def process_text_only(prompt):
     with st.chat_message("user"):
@@ -156,44 +157,61 @@ if audio and audio["bytes"]:
         process_text_only(transcription)
 
 elif uploaded_file is not None and prompt_with_image:
-    process_with_image(uploaded_file, prompt_with_image)
-    st.session_state.uploader_key += 1
-    st.rerun()
+    # قراية الصورة
+    image_b64 = encode_image(uploaded_file)
+    image_url = f"data:image/jpeg;base64,{image_b64}"
+    with st.chat_message("user"):
+        st.image(uploaded_file, width=300)
+        st.markdown(prompt_with_image)
+    with st.chat_message("assistant"):
+        with st.spinner("كنقرا الصورة..."):
+            system_prompt = {"role": "system", "content": "نتا RAM Bot v2.2. المطور ديالك رضا مالكي. كتهضر بالدارجة المغربية. إلا عطاوك صورة ديال بطاقة خرج المعلومات."}
+            user_content = [{"type": "text", "text": prompt_with_image}, {"type": "image_url", "image_url": {"url": image_url}}]
+            messages = [system_prompt] + get_text_messages() + [{"role": "user", "content": user_content}]
+            chat_completion = client.chat.completions.create(messages=messages, model="meta-llama/llama-4-scout-17b-16e-instruct", temperature=0.7, max_tokens=500)
+            response = chat_completion.choices[0].message.content
+            st.markdown(response)
+            audio_bytes = speak(response)
+            st.audio(audio_bytes, format="audio/mp3")
+            st.session_state.messages.append({"role": "user", "content": prompt_with_image, "image": uploaded_file})
+            st.session_state.messages.append({"role": "assistant", "content": response, "audio": audio_bytes})
 
 elif prompt_text_only:
-    if any(word in prompt_text_only for word in ["ولد ليا صورة", "صاوب ليا صورة", "رسم ليا"]):
+    # صورة
+    if any(word in prompt_text_only for word in ["ولد ليا صورة", "صاوب ليا صورة", "رسم ليا", "صورة ديال"]):
         with st.chat_message("user"):
             st.markdown(prompt_text_only)
         with st.chat_message("assistant"):
-            image_bytes = generate_image(prompt_text_only)
-            if isinstance(image_bytes, bytes):
-                st.image(image_bytes)
-                response = f"ها هي الصورة ديال: {prompt_text_only}"
+            result = generate_image(prompt_text_only)
+            if isinstance(result, bytes):
+                st.image(result)
+                response = "ها هي الصورة ديالك 🎨"
                 audio_bytes = speak(response)
                 st.audio(audio_bytes, format="audio/mp3")
                 st.session_state.messages.append({"role": "user", "content": prompt_text_only})
                 st.session_state.messages.append({"role": "assistant", "content": response, "audio": audio_bytes, "image": "ai_generated"})
             else:
-                st.error("ما قدرتش نولد الصورة")
+                st.error(f"خطأ فتوليد الصورة: {result}")
 
-    elif any(word in prompt_text_only for word in ["ولد ليا فيديو", "صاوب ليا فيديو"]):
+    # فيديو
+    elif any(word in prompt_text_only for word in ["ولد ليا فيديو", "صاوب ليا فيديو", "فيديو ديال"]):
         with st.chat_message("user"):
             st.markdown(prompt_text_only)
         with st.chat_message("assistant"):
-            video_url = generate_video(prompt_text_only)
-            if isinstance(video_url, list):
-                st.video(video_url[0])
+            result = generate_video(prompt_text_only)
+            if isinstance(result, list) and len(result) > 0:
+                st.video(result[0])
                 response = "ها هو الفيديو ديالك 🎬"
                 audio_bytes = speak(response)
                 st.audio(audio_bytes, format="audio/mp3")
                 st.session_state.messages.append({"role": "user", "content": prompt_text_only})
                 st.session_state.messages.append({"role": "assistant", "content": response, "audio": audio_bytes})
             else:
-                st.error(f"خطأ: {video_url}")
+                st.error(f"خطأ فتوليد الفيديو: {result}")
     else:
         process_text_only(prompt_text_only)
 
-# زر مسح المحادثة - مصلح 100%
+# مسح المحادثة
 if st.button("🗑️ مسح المحادثة", use_container_width=True, type="primary"):
     for key in list(st.session_state.keys()):
         del st.session_state[key]
