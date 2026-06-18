@@ -7,7 +7,7 @@ import urllib.parse
 import random
 from gtts import gTTS
 
-st.set_page_config(page_title="RAM Bot v4.3", page_icon="🌍", layout="centered")
+st.set_page_config(page_title="RAM Bot v4.4", page_icon="🌍", layout="centered")
 
 try:
     GROQ_KEY = st.secrets["GROQ_KEY"]
@@ -22,23 +22,27 @@ st.markdown("""
 .stApp {background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);}
 .card {background: white; padding: 2rem; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); text-align: center;}
 .card h1 {color: #667eea; margin: 0; font-size: 2.5rem;}
+.stButton>button {background: #ff4b4b; color: white; font-weight: bold; border-radius: 15px;}
 </style>
 """, unsafe_allow_html=True)
 
 st.markdown("""
 <div class="card">
-    <h1>🌍 RAM Bot v4.3</h1>
+    <h1>🌍 RAM Bot v4.4</h1>
     <p><b>المطور:</b> رضا مالكي</p>
-    <p>صوت + صور + جميع اللغات 📚</p>
+    <p>صوت + صور + جميع اللغات + مسح مضمون 📚</p>
 </div>
 """, unsafe_allow_html=True)
 
+# Session state
 if "messages" not in st.session_state:
     st.session_state.messages = []
 if "uploader_key" not in st.session_state:
     st.session_state.uploader_key = 0
 if "voice_input" not in st.session_state:
     st.session_state.voice_input = None
+if "page" not in st.session_state:
+    st.session_state.page = "app.py"
 
 def detect_lang(text):
     if any(word in text.lower() for word in ["hello", "hi", "what"]):
@@ -88,10 +92,10 @@ for msg in st.session_state.messages:
 # رفع الصورة
 uploaded_file = st.file_uploader("📸 صيفط صورة للحل", type=["png", "jpg", "jpeg"], key=f"uploader_{st.session_state.uploader_key}")
 
-# الصوت - الحل النهائي
+# الصوت
 audio = st.audio_input("🎤 سجل صوتك هنا")
 
-# نحولو الصوت لكتبة بلا rerun
+# نحولو الصوت لكتبة
 if audio and st.session_state.voice_input!= audio:
     st.session_state.voice_input = audio
     with st.spinner("كنسمعك وكنحول للكتابة..."):
@@ -108,11 +112,11 @@ if audio and st.session_state.voice_input!= audio:
 prompt_image = st.chat_input("سول على الصورة...", key="input_image")
 prompt_main = st.chat_input("كتب سؤالك... ولا 'ولد ليا صورة'", key="input_main")
 
-# نجمعو كلشي فـ prompt واحد باش نجاوبو
 final_prompt = prompt_main
 
 # معالجة
 if final_prompt:
+    st.session_state.messages.append({"role": "user", "content": final_prompt})
     lang = detect_lang(final_prompt)
 
     if "صورة" in final_prompt or "draw" in final_prompt.lower():
@@ -128,11 +132,11 @@ if final_prompt:
 
     else:
         with st.chat_message("assistant"):
-            system_msg = f"You are RAM Bot v4.3 by Reda Malki. Answer in {lang}. Be brief, Moroccan dialect if Arabic."
+            system_msg = f"You are RAM Bot v4.4 by Reda Malki. Answer in {lang}. Be brief, Moroccan dialect if Arabic."
             chat_completion = client.chat.completions.create(
                 messages=[
                     {"role": "system", "content": system_msg},
-                    {"role": "user", "content": final_prompt}
+                    *[{"role": m["role"], "content": m["content"]} for m in st.session_state.messages if "content" in m and isinstance(m["content"], str)]
                 ],
                 model="llama-3.3-70b-versatile",
                 max_tokens=400
@@ -164,14 +168,16 @@ if uploaded_file is not None and prompt_image:
             audio_bytes = speak(response, lang)
             st.audio(audio_bytes, format="audio/mp3")
             st.session_state.messages.append({"role": "assistant", "content": response, "audio": audio_bytes})
-            st.session_state.uploader_key += 1
+            st.session_state.uploader_key = random.randint(1000, 9999)
 
-# زر مسح المحادثة - كاين لتحت
-if st.button("🗑️ مسح المحادثة", type="primary", use_container_width=True):
-    st.session_state.messages = []
-    st.session_state.voice_input = None
-    st.session_state.uploader_key += 1
-    st.success("تم المسح! ✅")
-    st.rerun()
+# زر مسح المحادثة - مصلح 100% للموبايل
+col1, col2, col3 = st.columns([1,2,1])
+with col2:
+    if st.button("🗑️ مسح المحادثة", type="primary", use_container_width=True, key="clear_btn"):
+        st.session_state.messages = []
+        st.session_state.voice_input = None
+        st.session_state.uploader_key = random.randint(1000, 9999)
+        st.toast("تم المسح! ✅", icon="🗑️")
+        st.switch_page(st.session_state.page)
 
 st.markdown("<div style='text-align: center; color: white; margin-top: 2rem;'>Made with ❤️ by Reda Malki</div>", unsafe_allow_html=True)
