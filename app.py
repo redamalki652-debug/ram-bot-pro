@@ -10,7 +10,7 @@ from gtts import gTTS
 import replicate
 import os
 
-st.set_page_config(page_title="RAM Bot v3.1", page_icon="🤖", layout="centered")
+st.set_page_config(page_title="RAM Bot v3.2", page_icon="🤖", layout="centered")
 
 # التوكنز
 try:
@@ -33,7 +33,7 @@ st.markdown("""
 
 st.markdown("""
 <div class="card">
-    <h1>🤖 RAM Bot v3.1</h1>
+    <h1>🤖 RAM Bot v3.2</h1>
     <p><b>المطور:</b> رضا مالكي</p>
     <p>فيديو AI + صور AI + صوت + حل تمارين</p>
 </div>
@@ -65,14 +65,15 @@ def generate_video_replicate(prompt):
     st.info(f"DEBUG Prompt: {eng_prompt}")
     try:
         with st.spinner("كنولد الفيديو... 20 ثانية ⚡"):
+            # الموديل مصلح: wan-2.2-i2v-a14b
             output = replicate.run(
-                "wan-video/wan-2.2-a14b",
+                "wan-video/wan-2.2-i2v-a14b",
                 input={
                     "prompt": eng_prompt,
                     "duration": 5,
                     "aspect_ratio": "1:1",
                     "fps": 16,
-                    "negative_prompt": "blurry, low quality"
+                    "negative_prompt": "blurry, low quality, distorted"
                 }
             )
         video_url = output[0] if isinstance(output, list) else output
@@ -169,7 +170,7 @@ if prompt_main:
         with st.chat_message("assistant"):
             chat_completion = client.chat.completions.create(
                 messages=[
-                    {"role": "system", "content": "نتا RAM Bot v3.1. المطور رضا مالكي. كتهضر بالدارجة المغربية باختصار."},
+                    {"role": "system", "content": "نتا RAM Bot v3.2. المطور رضا مالكي. كتهضر بالدارجة المغربية باختصار."},
                     {"role": "user", "content": prompt_main}
                 ],
                 model="llama-3.3-70b-versatile",
@@ -207,7 +208,7 @@ if uploaded_file is not None and prompt_image:
             st.session_state.uploader_key += 1
             st.rerun()
 
-# زر المسح - لاصق ليسار بلا مسافات
+# زر المسح - لاصق ليسار
 if st.button("🗑️ مسح المحادثة", type="primary"):
     st.session_state.messages = []
     st.session_state.uploader_key += 1
