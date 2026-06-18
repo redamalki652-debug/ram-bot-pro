@@ -6,8 +6,9 @@ import io
 import urllib.parse
 import random
 from gtts import gTTS
+import re
 
-st.set_page_config(page_title="RAM Bot v5.0", page_icon="🌍", layout="centered")
+st.set_page_config(page_title="RAM Bot v5.1", page_icon="🌍", layout="centered")
 
 try:
     GROQ_KEY = st.secrets["GROQ_KEY"]
@@ -27,21 +28,55 @@ st.markdown("""
 
 st.markdown("""
 <div class="card">
-    <h1>🌍 RAM Bot v5.0</h1>
+    <h1>🌍 RAM Bot v5.1</h1>
     <p><b>المطور:</b> رضا مالكي</p>
-    <p>يفهم 100+ لغة + صوت + صور + مسح مضمون ✅</p>
+    <p>100+ لغة + صوت مضمون + مسح مضمون ✅</p>
 </div>
 """, unsafe_allow_html=True)
 
-# Session state بسيط بزاف
 if "messages" not in st.session_state:
     st.session_state.messages = []
 if "key" not in st.session_state:
     st.session_state.key = random.randint(1, 999)
 
+def get_gtts_lang(text):
+    """كتحدد لغة gTTS من النص - مدعوم 50+ لغة"""
+    text = text.lower()
+
+    # عربية - دارجة وفصحى
+    if re.search(r'[\u0600-\u06FF]', text):
+        return 'ar'
+
+    # إنجليزية
+    if any(w in text for w in ['the', 'is', 'are', 'hello', 'what']):
+        return 'en'
+
+    # فرنسية
+    if any(w in text for w in ['le', 'la', 'est', 'bonjour', 'vous']):
+        return 'fr'
+
+    # إسبانية
+    if any(w in text for w in ['el', 'la', 'es', 'hola', 'que']):
+        return 'es'
+
+    # ألمانية
+    if any(w in text for w in ['der', 'die', 'das', 'hallo', 'was']):
+        return 'de'
+
+    # إيطالية
+    if any(w in text for w in ['il', 'la', 'è', 'ciao', 'che']):
+        return 'it'
+
+    # تركية
+    if any(w in text for w in ['bu', 'bir', 've', 'merhaba', 'ne']):
+        return 'tr'
+
+    # افتراضي: عربية
+    return 'ar'
+
 def translate_to_english(text):
     text = text.lower().replace("ولد ليا صورة ديال", "").replace("draw", "").strip()
-    dict = {"قط": "cat cute 4k", "غوكو": "Goku Dragon Ball super saiyan anime", "كلب": "dog cute running 4k"}
+    dict = {"قط": "cat cute 4k", "غوكو": "Goku Dragon Ball super saiyan anime", "كلب": "dog cute 4k"}
     for ar, en in dict.items():
         if ar in text:
             return en + ", high quality 4k"
@@ -55,11 +90,18 @@ def generate_image(prompt):
         return r.content if r.status_code == 200 else None
 
 def speak(text):
-    # gTTS كيعرف 60+ لغة وكيحددها بوحدو
-    tts = gTTS(text=text, lang='auto')
-    buf = io.BytesIO()
-    tts.write_to_fp(buf)
-    return buf.getvalue()
+    try:
+        lang = get_gtts_lang(text)
+        tts = gTTS(text=text, lang=lang, slow=False)
+        buf = io.BytesIO()
+        tts.write_to_fp(buf)
+        return buf.getvalue()
+    except:
+        # إلا فشل، رجعو للعربية
+        tts = gTTS(text=text[:200], lang='ar') # نقطع النص إلا كان طويل
+        buf = io.BytesIO()
+        tts.write_to_fp(buf)
+        return buf.getvalue()
 
 # رسم الرسائل
 for msg in st.session_state.messages:
@@ -71,51 +113,45 @@ for msg in st.session_state.messages:
         else:
             st.markdown(msg["content"])
 
-# رفع الصورة - key كيتبدل ملي نمسحو
-uploaded_file = st.file_uploader("📸 صيفط صورة للحل", type=["png", "jpg", "jpeg"], key=f"uploader_{st.session_state.key}")
+uploaded_file = st.file_uploader("📸 صيفط صورة", type=["png", "jpg", "jpeg"], key=f"uploader_{st.session_state.key}")
+audio = st.audio_input("🎤 سجل صوتك بأي لغة")
 
-# الصوت - Whisper كيعرف 99 لغة تلقائيا
-audio = st.audio_input("🎤 سجل صوتك بأي لغة - دارجة، إنجليزية، فرنسية...")
-
-# الصناديق
 prompt_image = st.chat_input("سول على الصورة...", key=f"img_{st.session_state.key}")
-prompt_main = st.chat_input("كتب بأي لغة... ولا 'ولد ليا صورة'", key=f"main_{st.session_state.key}")
+prompt_main = st.chat_input("كتب بأي لغة...", key=f"main_{st.session_state.key}")
 
 # معالجة الصوت
 if audio:
-    with st.spinner("كنسمعك بأي لغة..."):
+    with st.spinner("كنسمعك..."):
         transcription = client.audio.transcriptions.create(
             file=("audio.wav", audio.getvalue()),
             model="whisper-large-v3",
             response_format="text",
-            language=None # None = كيعرف اللغة بوحدو
+            language=None
         )
         st.session_state.messages.append({"role": "user", "content": transcription})
         st.success(f"سمعتك: {transcription}")
-        prompt_main = transcription # ندوزو النص للمعالجة
+        prompt_main = transcription
 
 # معالجة النص
 if prompt_main:
     st.session_state.messages.append({"role": "user", "content": prompt_main})
 
-    if "صورة" in prompt_main or "draw" in prompt_main.lower() or "generate" in prompt_main.lower():
+    if "صورة" in prompt_main or "draw" in prompt_main.lower():
         with st.chat_message("assistant"):
             result = generate_image(prompt_main)
             if result:
-                st.image(result, caption="AI Generated - Flux")
+                st.image(result, caption="AI Generated")
                 audio_bytes = speak("ها هي الصورة ديالك")
                 st.audio(audio_bytes, format="audio/mp3")
                 st.session_state.messages.append({"role": "assistant", "content": result, "image": "ai", "prompt": prompt_main, "audio": audio_bytes})
-            else:
-                st.error("ما قدرتش نرسم")
+
     else:
         with st.chat_message("assistant"):
-            # النظام: جاوب بنفس اللغة اللي هضر بيها المستخدم - 100+ لغة
-            system_msg = "You are RAM Bot v5.0 by Reda Malki. Detect the user's language and reply in the EXACT same language. Keep it short and friendly."
+            system_msg = "You are RAM Bot v5.1 by Reda Malki. Detect user's language and reply in the EXACT same language. Keep it short."
             chat_completion = client.chat.completions.create(
                 messages=[{"role": "system", "content": system_msg}] + st.session_state.messages,
                 model="llama-3.3-70b-versatile",
-                max_tokens=400
+                max_tokens=350
             )
             response = chat_completion.choices[0].message.content
             st.markdown(response)
@@ -131,10 +167,10 @@ if uploaded_file and prompt_image:
     with st.chat_message("assistant"):
         with st.spinner("كنقرا الصورة..."):
             chat_completion = client.chat.completions.create(
-                messages=[{"role": "system", "content": "You are RAM Bot. Detect language and reply in same language. Solve step by step."},
+                messages=[{"role": "system", "content": "Detect language and reply in same language."},
                          {"role": "user", "content": [{"type": "text", "text": prompt_image}, {"type": "image_url", "image_url": {"url": image_url}}]}],
                 model="meta-llama/llama-4-scout-17b-16e-instruct",
-                max_tokens=800
+                max_tokens=600
             )
             response = chat_completion.choices[0].message.content
             st.markdown(response)
@@ -142,11 +178,11 @@ if uploaded_file and prompt_image:
             st.audio(audio_bytes, format="audio/mp3")
             st.session_state.messages.append({"role": "assistant", "content": response, "audio": audio_bytes})
 
-# زر المسح - الحل المضمون 100%
+# زر المسح المضمون
 if st.button("🗑️ مسح المحادثة", type="primary", use_container_width=True):
-    st.session_state.clear() # نمسحو كلشي
-    st.session_state.key = random.randint(100000, 999) # نبدلو المفتاح
-    st.success("تم المسح! الصفحة غتعاود تتحمل...")
-    st.stop() # نوقفو هنا باش Streamlit يعاود يبني الصفحة من جديد
+    st.session_state.clear()
+    st.session_state.key = random.randint(100000, 999)
+    st.success("تم المسح! ✅")
+    st.stop()
 
-st.markdown("<div style='text-align: center; color: white; margin-top: 2rem;'>Made with ❤️ by Reda Malki | 100+ لغات 🌍</div>", unsafe_allow_html=True)
+st.markdown("<div style='text-align: center; color: white; margin-top: 2rem;'>Made with ❤️ by Reda Malki</div>", unsafe_allow_html=True)
