@@ -1,4 +1,5 @@
 import streamlit as st
+import streamlit.components.v1 as components
 from groq import Groq
 import base64
 import requests
@@ -9,7 +10,24 @@ from gtts import gTTS
 import re
 import time
 
-st.set_page_config(page_title="RAM Bot v5.3", page_icon="🌍", layout="centered")
+# ==========================================
+# SEO Meta Tags لـ Google - خليهم فاللول
+# ==========================================
+components.html("""
+<meta name="description" content="RAM Bot v5.3 by Reda Malki - دردشة ذكية بـ 100+ لغة، توليد صور بالذكاء الاصطناعي، تحويل الصوت لنص، حل الصور">
+<meta name="keywords" content="RAM Bot, Reda Malki, ذكاء اصطناعي, دردشة, صور AI, مغربي, Groq, Streamlit">
+<meta name="author" content="Reda Malki">
+<meta property="og:title" content="RAM Bot v5.3 - دردشة ذكية مغربية">
+<meta property="og:description" content="أقوى بوت مغربي بالذكاء الاصطناعي - 100+ لغة + صور + صوت">
+<meta property="og:type" content="website">
+<meta name="robots" content="index, follow">
+""", height=0)
+
+st.set_page_config(
+    page_title="RAM Bot v5.3 - دردشة ذكية | Reda Malki",
+    page_icon="🌍",
+    layout="centered"
+)
 
 try:
     GROQ_KEY = st.secrets["GROQ_KEY"]
@@ -19,12 +37,15 @@ except KeyError:
 
 client = Groq(api_key=GROQ_KEY)
 
+# CSS
 st.markdown("""
 <style>
 .stApp {background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);}
-.card {background: white; padding: 2rem; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); text-align: center;}
+.card {background: white; padding: 2rem; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); text-align: center; margin-bottom: 2rem;}
 .card h1 {color: #667eea; margin: 0; font-size: 2.5rem;}
-.stButton>button {background: #ff4b4b; color: white; font-weight: bold; border-radius: 15px;}
+.card p {color: #666; margin: 0.5rem 0;}
+.stButton>button {background: #ff4b4b; color: white; font-weight: bold; border-radius: 15px; border: none;}
+.stButton>button:hover {background: #ff2b2b;}
 </style>
 """, unsafe_allow_html=True)
 
@@ -90,7 +111,7 @@ for msg in st.session_state.messages:
         else:
             st.markdown(msg["content"])
 
-# كل الـ widgets فيهم chat_key باش يتصفرو ملي نبدلوه
+# Widgets كلهم فيهم chat_key
 uploaded_file = st.file_uploader("📸 صيفط صورة للحل", type=["png", "jpg", "jpeg"], key=f"uploader_{st.session_state.chat_key}")
 audio = st.audio_input("🎤 سجل صوتك بأي لغة", key=f"audio_{st.session_state.chat_key}")
 prompt_image = st.chat_input("سول على الصورة...", key=f"img_{st.session_state.chat_key}")
@@ -154,10 +175,10 @@ if uploaded_file and prompt_image:
             st.audio(audio_bytes, format="audio/mp3")
             st.session_state.messages.append({"role": "assistant", "content": response, "audio": audio_bytes})
 
-# زر المسح المضمون 100% للموبايل
+# زر المسح المضمون 100%
 if st.button("🗑️ مسح المحادثة", type="primary", use_container_width=True, key=f"clear_{st.session_state.chat_key}"):
     st.session_state.messages = []
-    st.session_state.chat_key = random.randint(1000, 99999) # نبدلو المفتاح = كلشي يتصفر
+    st.session_state.chat_key = random.randint(1000, 99999)
     st.toast("تم المسح! الصفحة غتعود تتحمل...", icon="✅")
     time.sleep(0.3)
     st.rerun()
