@@ -9,7 +9,7 @@ from streamlit_mic_recorder import mic_recorder
 from gtts import gTTS
 import os
 
-st.set_page_config(page_title="RAM Bot v4.0", page_icon="🤖", layout="centered")
+st.set_page_config(page_title="RAM Bot v4.1 Multilang", page_icon="🌍", layout="centered")
 
 # التوكن
 try:
@@ -30,9 +30,9 @@ st.markdown("""
 
 st.markdown("""
 <div class="card">
-    <h1>🤖 RAM Bot v4.0</h1>
+    <h1>🌍 RAM Bot v4.1</h1>
     <p><b>المطور:</b> رضا مالكي</p>
-    <p>صور AI فابور + صوت + حل تمارين 📚</p>
+    <p>يفهم جميع اللغات + صور AI فابور + صوت 📚</p>
 </div>
 """, unsafe_allow_html=True)
 
@@ -41,16 +41,28 @@ if "messages" not in st.session_state:
 if "uploader_key" not in st.session_state:
     st.session_state.uploader_key = 0
 
+def detect_lang(text):
+    # نحددو اللغة ديال المستخدم باش نجاوبو بنفسها
+    if any(word in text.lower() for word in ["hello", "hi", "what", "how"]):
+        return "en"
+    elif any(word in text for word in ["bonjour", "salut", "comment", "quoi"]):
+        return "fr"
+    elif any(word in text for word in ["hola", "qué", "cómo"]):
+        return "es"
+    else:
+        return "ar" # الافتراضي دارجة
+
 def translate_to_english(text):
-    text = text.lower().replace("ولد ليا صورة ديال", "").replace("ولد ليا", "").replace("ارسم ليا", "").strip()
+    text = text.lower().replace("ولد ليا صورة ديال", "").replace("ولد ليا", "").replace("draw", "").replace("generate", "").strip()
     dict = {
         "قط": "cat cute, detailed, 4k",
+        "cat": "cat cute, detailed, 4k",
         "كلب": "dog cute, running, detailed",
+        "dog": "dog cute, running, detailed",
         "بحر": "ocean waves, sunset, cinematic",
-        "مطر": "rain falling, storm, cinematic",
-        "سيارة": "car sports, driving fast",
-        "غوكو": "Goku Dragon Ball, flying, super saiyan, anime style, detailed",
-        "goku": "Goku Dragon Ball, flying, super saiyan, anime style, detailed"
+        "sea": "ocean waves, sunset, cinematic",
+        "غوكو": "Goku Dragon Ball, flying, super saiyan, anime style",
+        "goku": "Goku Dragon Ball, flying, super saiyan, anime style"
     }
     for ar, en in dict.items():
         if ar in text:
@@ -58,15 +70,17 @@ def translate_to_english(text):
     return text + ", high quality, 4k" if text else "beautiful scene, 4k"
 
 def generate_image(prompt):
-    with st.spinner("كنرسم الصورة... 3 ثواني 🎨"):
+    with st.spinner("Generating image... 3 ثواني 🎨"):
         eng_prompt = translate_to_english(prompt)
         st.info(f"Prompt: {eng_prompt}")
         url = f"https://image.pollinations.ai/prompt/{urllib.parse.quote(eng_prompt)}?width=1024&height=1024&model=flux&nologo=true&seed={random.randint(1,9999)}"
         response = requests.get(url, timeout=30)
         return response.content if response.status_code == 200 else None
 
-def speak(text):
-    tts = gTTS(text=text, lang='ar')
+def speak(text, lang="ar"):
+    # gTTS كيدعم 40+ لغة
+    lang_map = {"ar": "ar", "en": "en", "fr": "fr", "es": "es"}
+    tts = gTTS(text=text, lang=lang_map.get(lang, "ar"))
     buf = io.BytesIO()
     tts.write_to_fp(buf)
     return buf.getvalue()
@@ -86,24 +100,24 @@ for msg in st.session_state.messages:
 # رفع الصورة + الميكرو
 col1, col2 = st.columns(2)
 with col1:
-    audio = mic_recorder(start_prompt="🎤 سجل صوتك", stop_prompt="⏹️ وقف", key="recorder")
+    audio = mic_recorder(start_prompt="🎤 Record", stop_prompt="⏹️ Stop", key="recorder")
 with col2:
-    uploaded_file = st.file_uploader("📸 صيفط صورة للشرح", type=["png", "jpg", "jpeg"], key=f"uploader_{st.session_state.uploader_key}")
+    uploaded_file = st.file_uploader("📸 Upload image", type=["png", "jpg", "jpeg"], key=f"uploader_{st.session_state.uploader_key}")
 
 # الصندوق الأول: للصور
-prompt_image = st.chat_input("كتب سؤالك على الصورة هنا...", key="input_image")
+prompt_image = st.chat_input("Ask about image...", key="input_image")
 
 # الصندوق الثاني: للدردشة والصور
-prompt_main = st.chat_input("كتب سؤالك... ولا 'ولد ليا صورة ديال...'", key="input_main")
+prompt_main = st.chat_input("Write in any language... Ask for image with 'draw...' or 'ولد ليا...'", key="input_main")
 
 # معالجة الميكرو
 if audio and audio["bytes"]:
-    with st.spinner("كنسمعك..."):
+    with st.spinner("Listening..."):
         transcription = client.audio.transcriptions.create(
             file=("audio.wav", audio["bytes"]),
             model="whisper-large-v3",
             response_format="text",
-            language="ar"
+            language=None # Whisper كيعرف اللغة بوحدو
         )
         prompt_main = transcription
         st.rerun()
@@ -114,30 +128,33 @@ if prompt_main:
         st.markdown(prompt_main)
     st.session_state.messages.append({"role": "user", "content": prompt_main})
 
-    if "صورة" in prompt_main or "رسم" in prompt_main:
+    lang = detect_lang(prompt_main)
+
+    if "صورة" in prompt_main or "draw" in prompt_main.lower() or "generate image" in prompt_main.lower():
         with st.chat_message("assistant"):
             result = generate_image(prompt_main)
             if result:
-                st.image(result, caption="توليد AI - Flux")
-                audio_bytes = speak("ها هي الصورة ديالك")
+                st.image(result, caption="AI Generated - Flux")
+                audio_bytes = speak("Here's your image" if lang=="en" else "ها هي الصورة ديالك", lang)
                 st.audio(audio_bytes, format="audio/mp3")
                 st.session_state.messages.append({"role": "assistant", "content": result, "image": "ai", "prompt": prompt_main, "audio": audio_bytes})
             else:
-                st.error("ما قدرتش نرسم الصورة، عاود المحاولة")
+                st.error("Failed to generate image")
 
     else:
         with st.chat_message("assistant"):
+            system_msg = f"You are RAM Bot v4.1 by Reda Malki. Answer in the same language as user: {lang}. Be brief and clear."
             chat_completion = client.chat.completions.create(
                 messages=[
-                    {"role": "system", "content": "نتا RAM Bot v4.0. المطور رضا مالكي. كتهضر بالدارجة المغربية باختصار ووضوح."},
+                    {"role": "system", "content": system_msg},
                     {"role": "user", "content": prompt_main}
                 ],
                 model="llama-3.3-70b-versatile",
-                max_tokens=300
+                max_tokens=400
             )
             response = chat_completion.choices[0].message.content
             st.markdown(response)
-            audio_bytes = speak(response)
+            audio_bytes = speak(response, lang)
             st.audio(audio_bytes, format="audio/mp3")
             st.session_state.messages.append({"role": "assistant", "content": response, "audio": audio_bytes})
 
@@ -151,8 +168,9 @@ if uploaded_file is not None and prompt_image:
     st.session_state.messages.append({"role": "user", "content": prompt_image, "image": uploaded_file})
 
     with st.chat_message("assistant"):
-        with st.spinner("كنقرا الصورة وكنحل التمرين..."):
-            system_prompt = {"role": "system", "content": "نتا RAM Bot. المطور رضا مالكي. كتهضر بالدارجة. حل التمرين خطوة بخطوة وشرح مزيان."}
+        with st.spinner("Analyzing image..."):
+            lang = detect_lang(prompt_image)
+            system_prompt = {"role": "system", "content": f"You are RAM Bot. Answer in {lang}. Solve step by step and explain clearly."}
             user_content = [{"type": "text", "text": prompt_image}, {"type": "image_url", "image_url": {"url": image_url}}]
             chat_completion = client.chat.completions.create(
                 messages=[system_prompt, {"role": "user", "content": user_content}],
@@ -161,17 +179,17 @@ if uploaded_file is not None and prompt_image:
             )
             response = chat_completion.choices[0].message.content
             st.markdown(response)
-            audio_bytes = speak(response)
+            audio_bytes = speak(response, lang)
             st.audio(audio_bytes, format="audio/mp3")
             st.session_state.messages.append({"role": "assistant", "content": response, "audio": audio_bytes})
             st.session_state.uploader_key += 1
             st.rerun()
 
 # زر المسح
-if st.button("🗑️ مسح المحادثة", type="primary"):
+if st.button("🗑️ Clear Chat", type="primary"):
     st.session_state.messages = []
     st.session_state.uploader_key += 1
-    st.success("تم المسح!")
+    st.success("Cleared!")
     st.rerun()
 
-st.markdown("<div style='text-align: center; color: white; margin-top: 2rem;'>صنع بـ ❤️ بواسطة رضا مالكي | كلو فابور</div>", unsafe_allow_html=True)
+st.markdown("<div style='text-align: center; color: white; margin-top: 2rem;'>Made with ❤️ by Reda Malki | Multilingual 🌍</div>", unsafe_allow_html=True)
