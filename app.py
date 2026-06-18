@@ -5,11 +5,9 @@ import requests
 import io
 import urllib.parse
 import random
-from streamlit_mic_recorder import mic_recorder
 from gtts import gTTS
-import os
 
-st.set_page_config(page_title="RAM Bot v4.1 Multilang", page_icon="🌍", layout="centered")
+st.set_page_config(page_title="RAM Bot v4.2 Voice", page_icon="🌍", layout="centered")
 
 # التوكن
 try:
@@ -30,9 +28,9 @@ st.markdown("""
 
 st.markdown("""
 <div class="card">
-    <h1>🌍 RAM Bot v4.1</h1>
+    <h1>🌍 RAM Bot v4.2</h1>
     <p><b>المطور:</b> رضا مالكي</p>
-    <p>يفهم جميع اللغات + صور AI فابور + صوت 📚</p>
+    <p>يفهم جميع اللغات + صوت + صور AI فابور 📚</p>
 </div>
 """, unsafe_allow_html=True)
 
@@ -42,15 +40,14 @@ if "uploader_key" not in st.session_state:
     st.session_state.uploader_key = 0
 
 def detect_lang(text):
-    # نحددو اللغة ديال المستخدم باش نجاوبو بنفسها
     if any(word in text.lower() for word in ["hello", "hi", "what", "how"]):
         return "en"
-    elif any(word in text for word in ["bonjour", "salut", "comment", "quoi"]):
+    elif any(word in text for word in ["bonjour", "salut", "comment"]):
         return "fr"
     elif any(word in text for word in ["hola", "qué", "cómo"]):
         return "es"
     else:
-        return "ar" # الافتراضي دارجة
+        return "ar"
 
 def translate_to_english(text):
     text = text.lower().replace("ولد ليا صورة ديال", "").replace("ولد ليا", "").replace("draw", "").replace("generate", "").strip()
@@ -78,7 +75,6 @@ def generate_image(prompt):
         return response.content if response.status_code == 200 else None
 
 def speak(text, lang="ar"):
-    # gTTS كيدعم 40+ لغة
     lang_map = {"ar": "ar", "en": "en", "fr": "fr", "es": "es"}
     tts = gTTS(text=text, lang=lang_map.get(lang, "ar"))
     buf = io.BytesIO()
@@ -97,12 +93,11 @@ for msg in st.session_state.messages:
         else:
             st.markdown(msg["content"])
 
-# رفع الصورة + الميكرو
-col1, col2 = st.columns(2)
-with col1:
-    audio = mic_recorder(start_prompt="🎤 Record", stop_prompt="⏹️ Stop", key="recorder")
-with col2:
-    uploaded_file = st.file_uploader("📸 Upload image", type=["png", "jpg", "jpeg"], key=f"uploader_{st.session_state.uploader_key}")
+# رفع الصورة
+uploaded_file = st.file_uploader("📸 Upload image للحل", type=["png", "jpg", "jpeg"], key=f"uploader_{st.session_state.uploader_key}")
+
+# الصوت - هادا هو الحل الجديد
+audio = st.audio_input("🎤 سجل صوتك هنا - كيعرف جميع اللغات")
 
 # الصندوق الأول: للصور
 prompt_image = st.chat_input("Ask about image...", key="input_image")
@@ -110,16 +105,17 @@ prompt_image = st.chat_input("Ask about image...", key="input_image")
 # الصندوق الثاني: للدردشة والصور
 prompt_main = st.chat_input("Write in any language... Ask for image with 'draw...' or 'ولد ليا...'", key="input_main")
 
-# معالجة الميكرو
-if audio and audio["bytes"]:
-    with st.spinner("Listening..."):
+# معالجة الصوت الجديد
+if audio:
+    with st.spinner("كنسمعك وكنحول للكتابة..."):
         transcription = client.audio.transcriptions.create(
-            file=("audio.wav", audio["bytes"]),
+            file=("audio.wav", audio.getvalue()),
             model="whisper-large-v3",
             response_format="text",
-            language=None # Whisper كيعرف اللغة بوحدو
+            language=None
         )
         prompt_main = transcription
+        st.success(f"سمعتك: {prompt_main}")
         st.rerun()
 
 # معالجة الصندوق الثاني
@@ -143,7 +139,7 @@ if prompt_main:
 
     else:
         with st.chat_message("assistant"):
-            system_msg = f"You are RAM Bot v4.1 by Reda Malki. Answer in the same language as user: {lang}. Be brief and clear."
+            system_msg = f"You are RAM Bot v4.2 by Reda Malki. Answer in the same language as user: {lang}. Be brief and clear."
             chat_completion = client.chat.completions.create(
                 messages=[
                     {"role": "system", "content": system_msg},
@@ -192,4 +188,4 @@ if st.button("🗑️ Clear Chat", type="primary"):
     st.success("Cleared!")
     st.rerun()
 
-st.markdown("<div style='text-align: center; color: white; margin-top: 2rem;'>Made with ❤️ by Reda Malki | Multilingual 🌍</div>", unsafe_allow_html=True)
+st.markdown("<div style='text-align: center; color: white; margin-top: 2rem;'>Made with ❤️ by Reda Malki | Voice + Multilingual 🌍</div>", unsafe_allow_html=True)
