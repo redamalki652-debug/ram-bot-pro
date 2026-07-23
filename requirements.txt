@@ -2,7 +2,7 @@ streamlit
 groq>=0.11.0
 streamlit-webrtc
 av
-pydub
 gtts
 langdetect
 requests
+numpy
