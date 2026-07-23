@@ -5,4 +5,4 @@ av
 gtts
 langdetect
 requests
-numpy
+webrtcvad # نجربوه إلا خدم
