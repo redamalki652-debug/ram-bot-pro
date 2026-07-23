@@ -1,5 +1,5 @@
 streamlit
-groq
+groq>=0.11.0
 requests
 gtts
 SpeechRecognition
