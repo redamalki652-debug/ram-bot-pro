@@ -1,7 +1,8 @@
 streamlit
 groq>=0.11.0
-requests
-gtts
-SpeechRecognition
+streamlit-webrtc
+av
 pydub
+gtts
 langdetect
+requests
