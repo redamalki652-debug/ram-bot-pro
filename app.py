@@ -96,7 +96,7 @@ def call_groq(messages):
     try:
         chat_completion = client.chat.completions.create(
             messages=messages,
-            model="llama-3.1-8b-instant", # مهم: هذا الموديل خدام
+            model="llama-3.3-70b-versatile", # <<<<< هذا هو الموديل الصحيح
             temperature=0.7,
             max_tokens=2048
         )
