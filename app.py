@@ -8,7 +8,7 @@ from io import BytesIO
 import speech_recognition as sr
 from langdetect import detect
 
-st.set_page_config(page_title="RAM Bot v4.5 AI", page_icon="🤖", layout="centered")
+st.set_page_config(page_title="RAM Bot v4.7 AI", page_icon="🤖", layout="centered")
 
 try:
     GROQ_KEY = st.secrets["GROQ_KEY"]
@@ -17,25 +17,39 @@ except:
     st.error("🚨 الـ GROQ_KEY ماشي موجود. مشي للـ Settings > Secrets")
     st.stop()
 
-# ====== الإصلاح المهم: نجيبو الموديلات المتاحة تلقائيا ======
+# ====== اختيار ذكي للموديلات المتاحة ======
 @st.cache_data
 def get_available_models():
     try:
         models = client.models.list()
         model_ids = [m.id for m in models.data]
 
-        # نختارو أحسن نص
-        text_model = "llama-3.3-70b-versatile" if "llama-3.3-70b-versatile" in model_ids else model_ids[0]
+        # الأولوية للنص: نختارو الأحسن اللي فيه 70b
+        text_priority = [
+            "llama-3.3-70b-versatile",
+            "llama-3.1-70b-versatile",
+            "llama-3-70b-8192",
+            "mixtral-8x7b-32768",
+            "gemma2-9b-it"
+        ]
+        text_model = next((m for m in text_priority if m in model_ids), None)
 
-        # نختارو أحسن Vision
-        vision_candidates = ["qwen/qwen3.6-27b", "qwen/qwen2.5-vl-32b", "llama-3.2-11b-vision-preview"]
-        vision_model = next((m for m in vision_candidates if m in model_ids), None)
+        # الأولوية للـ Vision
+        vision_priority = [
+            "qwen/qwen3.6-27b",
+            "qwen/qwen2.5-vl-32b",
+            "llama-3.2-11b-vision-preview",
+            "llama-3.2-90b-vision-preview"
+        ]
+        vision_model = next((m for m in vision_priority if m in model_ids), None)
 
         return text_model, vision_model, model_ids
     except Exception as e:
-        return "llama-3.3-70b-versatile", None, []
+        st.error(f"خطأ فجلب الموديلات: {e}")
+        return None, None, []
 
 TEXT_MODEL, VISION_MODEL, ALL_MODELS = get_available_models()
+MAX_TOKENS = 512 # جميع الموديلات دابا 512
 # ============================================================
 
 recognizer = sr.Recognizer()
@@ -47,26 +61,32 @@ st.markdown("""
 .card h1 {color: #667eea; margin: 0; font-size: 2.2rem;}
 .section-title {color: white; font-size: 1.5rem; font-weight: bold; margin-top: 1rem;}
 .footer {text-align: center; color: white; font-size: 1.1rem; margin: 1rem 0; font-weight: bold;}
-.warning {background: #fff3cd; color: #856404; padding: 1rem; border-radius: 10px; margin: 1rem 0;}
 </style>
 """, unsafe_allow_html=True)
 
 st.markdown("""
 <div class="card">
-    <h1>🤖 RAM Bot v4.5 ⚡ AI</h1>
+    <h1>🤖 RAM Bot v4.7 ⚡ AI</h1>
     <p><b>المطور:</b> رضا مالكي</p>
 </div>
 """, unsafe_allow_html=True)
 
-# نوريو للمستخدم شنو خدام
-st.info(f"🧠 **Text Model**: `{TEXT_MODEL}`")
-if VISION_MODEL:
-    st.info(f"👁️ **Vision Model**: `{VISION_MODEL}`")
+# عرض الموديلات المختارة
+if TEXT_MODEL:
+    st.success(f"🧠 **Text Model**: `{TEXT_MODEL}`")
 else:
-    st.markdown('<div class="warning">⚠️ ما لقيناش Vision Model متاح. تحليل الصور غادي يكون معطل</div>', unsafe_allow_html=True)
+    st.error("🚨 ما لقيناش Text Model متاح")
 
-with st.expander("شوف جميع الموديلات المتاحة عندك"):
-    st.code("\n".join(ALL_MODELS))
+if VISION_MODEL:
+    st.success(f"👁️ **Vision Model**: `{VISION_MODEL}`")
+else:
+    st.warning("⚠️ ما كاينش Vision Model متاح. تحليل الصور معطل")
+
+with st.expander("📋 شوف جميع الموديلات المتاحة عندك"):
+    if ALL_MODELS:
+        st.code("\n".join(ALL_MODELS))
+    else:
+        st.write("ما قدرتش نجيب الموديلات")
 
 lang_map_tts = {'ar': 'ar', 'fr': 'fr', 'en': 'en'}
 
@@ -111,16 +131,17 @@ def generate_image(prompt):
             return f"Error: {str(e)}"
 
 def call_groq_text(messages):
+    if not TEXT_MODEL: return None, "ما كاينش Text Model متاح"
     try:
         chat_completion = client.chat.completions.create(
             messages=messages,
             model=TEXT_MODEL,
             temperature=0.7,
-            max_tokens=2048
+            max_tokens=MAX_TOKENS
         )
         return chat_completion.choices[0].message.content, None
     except Exception as e:
-        return None, str(e)
+        return None, str(e) # كنرجعو الخطأ كامل
 
 def call_groq_vision(user_question, image_base64, mime_type):
     if not VISION_MODEL:
@@ -135,13 +156,13 @@ def call_groq_vision(user_question, image_base64, mime_type):
         }]
         chat_completion = client.chat.completions.create(
             messages=messages_with_image,
-            model=VISION_MODEL, # Vision model
+            model=VISION_MODEL,
             temperature=0.7,
-            max_tokens=2048
+            max_tokens=MAX_TOKENS
         )
         return chat_completion.choices[0].message.content, None
     except Exception as e:
-        return None, str(e)
+        return None, str(e) # كنرجعو الخطأ كامل
 
 def clear_chat():
     st.session_state.messages = []
@@ -176,12 +197,11 @@ if audio_value:
         user_text = speech_to_text(audio_value)
         if user_text:
             detected_lang = detect_language(user_text)
-
             if st.session_state.uploaded_image is not None:
                 with st.spinner("كنحلل الصورة بالصوت..."):
                     image_base64, mime_type = encode_image(st.session_state.uploaded_image)
                     response, error = call_groq_vision(user_text, image_base64, mime_type)
-                    if error: st.error(f"🚨 خطأ Vision: {error}")
+                    if error: st.error(f"🚨 خطأ Vision: {error}") # عرض الخطأ كامل
                     else:
                         audio_response = text_to_speech(response, detected_lang)
                         st.session_state.messages.append({"role": "user", "content": f"[صوت على صورة] {user_text}"})
@@ -193,9 +213,9 @@ if audio_value:
                         st.rerun()
             else:
                 st.session_state.messages.append({"role": "user", "content": user_text})
-                system_prompt = {"role": "system", "content": "نتا RAM Bot v4.5. المطور ديالك رضا مالكي. جاوب بالعربية المغربية."}
+                system_prompt = {"role": "system", "content": "نتا RAM Bot v4.7. المطور ديالك رضا مالكي. جاوب بالعربية المغربية باختصار."}
                 response, error = call_groq_text([system_prompt] + st.session_state.messages)
-                if error: st.error(f"🚨 خطأ: {error}")
+                if error: st.error(f"🚨 خطأ Text: {error}") # عرض الخطأ كامل
                 else:
                     audio_response = text_to_speech(response, detected_lang)
                     with st.chat_message("assistant"):
@@ -223,7 +243,7 @@ if prompt_text_only:
         with st.spinner("كنحلل الصورة..."):
             image_base64, mime_type = encode_image(st.session_state.uploaded_image)
             response, error = call_groq_vision(prompt_text_only, image_base64, mime_type)
-            if error: st.error(f"🚨 خطأ Vision: {error}")
+            if error: st.error(f"🚨 خطأ Vision: {error}") # عرض الخطأ كامل
             else:
                 audio_response = text_to_speech(response, detected_lang)
                 st.session_state.messages.append({"role": "user", "content": f"[صورة] {prompt_text_only}"})
@@ -237,9 +257,9 @@ if prompt_text_only:
     else:
         st.session_state.messages.append({"role": "user", "content": prompt_text_only})
         with st.chat_message("assistant"):
-            system_prompt = {"role": "system", "content": "نتا RAM Bot v4.5. جاوب بالعربية المغربية."}
+            system_prompt = {"role": "system", "content": "نتا RAM Bot v4.7. جاوب بالعربية المغربية باختصار."}
             response, error = call_groq_text([system_prompt] + st.session_state.messages)
-            if error: st.error(f"🚨 خطأ: {error}")
+            if error: st.error(f"🚨 خطأ Text: {error}") # عرض الخطأ كامل
             else:
                 audio_response = text_to_speech(response, detected_lang)
                 st.markdown(response)
