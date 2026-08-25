@@ -92,7 +92,7 @@ def call_groq(messages):
     try:
         chat_completion = client.chat.completions.create(
             messages=messages,
-            model="gemma2-9b-it", # <<<<<< الموديل الجديد اللي خدام
+            model="llama-3.1-8b-instant", # <<<<<< الموديل الجديد
             temperature=0.7,
             max_tokens=2048
         )
