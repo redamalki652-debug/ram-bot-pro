@@ -15,7 +15,7 @@ try:
     GROQ_KEY = st.secrets["GROQ_KEY"]
     client = Groq(api_key=GROQ_KEY)
 except:
-    st.error("🚨 الـ GROQ_KEY ماشي موجود. مشي للـ Settings > Secrets")
+    st.error("🚨 الـ GROQ_KEY ماشي موجود. مشي للـ Settings > Secrets فـ Streamlit Cloud")
     st.stop()
 
 recognizer = sr.Recognizer()
@@ -64,21 +64,22 @@ def text_to_speech(text, lang):
         return None
 
 def speech_to_text(audio_bytes):
-    with sr.AudioFile(audio_bytes) as source:
-        audio = recognizer.record(source)
     try:
+        with sr.AudioFile(audio_bytes) as source:
+            audio = recognizer.record(source)
         for l in ['ar-MA', 'fr-FR', 'en-US']:
             try:
                 return recognizer.recognize_google(audio, language=l)
             except: continue
         return ""
-    except:
+    except Exception as e:
+        st.warning(f"⚠️ مشكل فمعالجة الصوت: {e}")
         return ""
 
 def generate_image(prompt):
     with st.spinner("⚡ كنرسم فـ 3 ثواني..."):
         try:
-            clean_prompt = prompt.replace("ولد ليا", "").replace("generate", "").strip()
+            clean_prompt = prompt.replace("ولد ليا", "").replace("generate", "").replace("draw", "").strip()
             encoded_prompt = urllib.parse.quote(clean_prompt)
             url = f"https://image.pollinations.ai/prompt/{encoded_prompt}?width=512&height=512&nologo=true"
             response = requests.get(url, timeout=30)
@@ -87,12 +88,15 @@ def generate_image(prompt):
             return f"Error: {str(e)}"
 
 def get_text_messages():
-    return [{"role": msg["role"], "content": msg["content"]} for msg in st.session_state.messages if "content" in msg]
+    return [{"role": msg["role"], "content": msg["content"]} for msg in st.session_state.messages if "content" in msg and isinstance(msg["content"], str)]
 
 def call_groq(messages):
     try:
         chat_completion = client.chat.completions.create(
-            messages=messages, model="llama-3.3-70b-versatile", temperature=0.7, max_tokens=2048
+            messages=messages,
+            model="llama-3.1-8b-instant", # الموديل اللي خدام
+            temperature=0.7,
+            max_tokens=2048
         )
         return chat_completion.choices[0].message.content, None
     except Exception as e:
@@ -102,33 +106,25 @@ def clear_chat():
     st.session_state.messages = []
     st.session_state.uploaded_image = None
     st.session_state.uploader_key += 1
-    st.session_state.chat_key += 100 # زدت بزاف باش يتبدل نيشان
+    st.session_state.chat_key += 100
     st.session_state.last_image = None
     st.session_state.last_audio_hash = None
 
-if "messages" not in st.session_state:
-    st.session_state.messages = []
-if "uploaded_image" not in st.session_state:
-    st.session_state.uploaded_image = None
-if "uploader_key" not in st.session_state:
-    st.session_state.uploader_key = 0
-if "chat_key" not in st.session_state:
-    st.session_state.chat_key = 0
-if "last_image" not in st.session_state:
-    st.session_state.last_image = None
-if "last_audio_hash" not in st.session_state:
-    st.session_state.last_audio_hash = None # هادي جديدة باش نمنعو التكرار
+if "messages" not in st.session_state: st.session_state.messages = []
+if "uploaded_image" not in st.session_state: st.session_state.uploaded_image = None
+if "uploader_key" not in st.session_state: st.session_state.uploader_key = 0
+if "chat_key" not in st.session_state: st.session_state.chat_key = 0
+if "last_image" not in st.session_state: st.session_state.last_image = None
+if "last_audio_hash" not in st.session_state: st.session_state.last_audio_hash = None
 
 for msg in st.session_state.messages:
     with st.chat_message(msg["role"]):
-        if "audio" in msg and msg["audio"]:
-            st.audio(msg["audio"], autoplay=False)
+        if "audio" in msg and msg["audio"]: st.audio(msg["audio"], autoplay=False)
         if "image" in msg and msg["image"]:
             st.image(msg["image"])
             st.session_state.last_image = msg["image"]
         st.markdown(msg["content"])
 
-# القسم 1: سؤال بالصورة
 st.markdown('<p class="section-title">📸❓ سؤال بالصورة</p>', unsafe_allow_html=True)
 uploaded_file = st.file_uploader("Upload", type=["png", "jpg", "jpeg"], label_visibility="collapsed", key=f"uploader_{st.session_state.uploader_key}")
 st.caption("200MB per file • PNG, JPG")
@@ -137,13 +133,12 @@ if uploaded_file:
     st.session_state.last_image = uploaded_file
     st.image(uploaded_file, width=200)
 
-# القسم 2: هضر
 st.markdown('<p class="section-title">🎤 هضر</p>', unsafe_allow_html=True)
 audio_value = st.audio_input(" ", label_visibility="collapsed", key=f"audio_{st.session_state.chat_key}")
 
 if audio_value:
-    audio_hash = hashlib.md5(audio_value.getvalue()).hexdigest() # ناخدو بصمة الصوت
-    if audio_hash!= st.session_state.last_audio_hash: # الا ماشي نفس الصوت اللي فات
+    audio_hash = hashlib.md5(audio_value.getvalue()).hexdigest()
+    if audio_hash!= st.session_state.last_audio_hash:
         st.session_state.last_audio_hash = audio_hash
         st.audio(audio_value)
         with st.spinner("كنسمعك..."):
@@ -151,10 +146,10 @@ if audio_value:
             if user_text:
                 detected_lang = detect_language(user_text)
                 st.session_state.messages.append({"role": "user", "content": user_text})
-                system_prompt = {"role": "system", "content": f"نتا RAM Bot v3.9. المطور ديالك رضا مالكي. كتشف اللغة و جاوب بنفسها. رد قصير."}
+                system_prompt = {"role": "system", "content": f"نتا RAM Bot v3.9. المطور ديالك رضا مالكي. كتشف اللغة و جاوب بنفسها. رد قصير ومفيد."}
                 messages = [system_prompt] + get_text_messages()
                 response, error = call_groq(messages)
-                if error: st.error(f"🚨 خطأ: {error}")
+                if error: st.error(f"🚨 خطأ Groq: {error}")
                 else:
                     audio_response = text_to_speech(response, detected_lang)
                     with st.chat_message("assistant"):
@@ -164,7 +159,6 @@ if audio_value:
 
 st.button("🗑️ مسح المحادثة", on_click=clear_chat, key=f"clear_{st.session_state.chat_key}")
 
-# الخانة 1 الفوقانية: سول على الصورة
 prompt_image_question = st.chat_input("سول على الصورة...", key=f"chat_img_{st.session_state.chat_key}")
 if prompt_image_question:
     image_to_use = st.session_state.uploaded_image if st.session_state.uploaded_image else st.session_state.last_image
@@ -179,7 +173,7 @@ if prompt_image_question:
                 user_content = [{"type": "text", "text": prompt_image_question}, {"type": "image_url", "image_url": {"url": image_url}}]
                 messages = [system_prompt] + get_text_messages() + [{"role": "user", "content": user_content}]
                 response, error = call_groq(messages)
-                if error: st.error(f"🚨 خطأ: {error}")
+                if error: st.error(f"🚨 خطأ Groq: {error}")
                 else:
                     st.markdown(response)
                     audio_response = text_to_speech(response, detected_lang)
@@ -192,12 +186,9 @@ if prompt_image_question:
     else:
         st.warning("⚠️ رفع صورة الاول ولا سول على اخر صورة تولدات")
 
-# FOOTER
 st.markdown('<div class="footer">صنع بـ ❤️ بواسطة رضا مالكي</div>', unsafe_allow_html=True)
 
-# الخانة 2 التحانية: العادية
 prompt_text_only = st.chat_input("كتب بأي لغة... ولا 'ولد ليا صورة'", key=f"chat_main_{st.session_state.chat_key}")
-
 if prompt_text_only:
     detected_lang = detect_language(prompt_text_only)
     if any(word in prompt_text_only.lower() for word in ["ولد ليا", "generate", "draw", "صاوب ليا"]):
@@ -212,14 +203,14 @@ if prompt_text_only:
                 if audio_response: st.audio(audio_response, autoplay=False)
                 st.session_state.messages.append({"role": "assistant", "content": "تفضل الصورة", "image": image_bytes, "audio": audio_response})
             else:
-                st.error(f"خطأ: {image_bytes}")
+                st.error(f"خطأ فتوليد الصورة: {image_bytes}")
     else:
         st.session_state.messages.append({"role": "user", "content": prompt_text_only})
         with st.chat_message("assistant"):
-            system_prompt = {"role": "system", "content": f"نتا RAM Bot v3.9. كتشف اللغة و جاوب بنفسها. رد قصير."}
+            system_prompt = {"role": "system", "content": f"نتا RAM Bot v3.9. كتشف اللغة و جاوب بنفسها. رد قصير ومفيد."}
             messages = [system_prompt] + get_text_messages()
             response, error = call_groq(messages)
-            if error: st.error(f"🚨 خطأ: {error}")
+            if error: st.error(f"🚨 خطأ Groq: {error}")
             else:
                 audio_response = text_to_speech(response, detected_lang)
                 st.markdown(response)
